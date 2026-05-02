@@ -5886,6 +5886,35 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function positionsImpl(name: ExchangeName, body: any): Promise<ImplResult> {
+  const credentials = resolveCredentialsFor(name, body);
+
+  if (!credentials) {
+    return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
+  }
+
+  try {
+    const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
+    await prepareExchange(exchange);
+    console.log(`[${name.toUpperCase()} Positions Request]`);
+
+    // For OKX, we might want to fetch positions for swap specifically if needed
+    // TODO: verify Binance compatibility -- instType "SWAP" param + normalizeOkxPosition are OKX-specific.
+    const positions = await runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
+
+    const activePositions = positions
+      .map(normalizeOkxPosition)
+      .filter((p: any) => Math.abs(Number(p.contracts || 0)) > 0);
+
+    console.log(`[${name.toUpperCase()} Positions] Found ${activePositions.length} active positions`);
+    return { ok: true, status: 200, data: activePositions };
+  } catch (error: any) {
+    const errMsg = error?.message || String(error || "Unknown Error");
+    console.error(`[${name.toUpperCase()} Positions Error]`, errMsg);
+    return { ok: false, status: 500, error: errMsg };
+  }
+}
+
 async function fundingImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
@@ -6970,31 +6999,8 @@ async function startServer() {
   });
 
   app.post("/api/okx/positions", async (req, res) => {
-    const credentials = resolveCredentialsFor("okx", req.body);
-
-    if (!credentials) {
-      return res.status(400).json({ error: "Missing OKX credentials" });
-    }
-
-    try {
-      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
-      await prepareExchange(exchange);
-      console.log(`[OKX Positions Request]`);
-
-      // For OKX, we might want to fetch positions for swap specifically if needed
-      const positions = await runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
-
-      const activePositions = positions
-        .map(normalizeOkxPosition)
-        .filter((p: any) => Math.abs(Number(p.contracts || 0)) > 0);
-
-      console.log(`[OKX Positions] Found ${activePositions.length} active positions`);
-      res.json(activePositions);
-    } catch (error: any) {
-      const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Positions Error]`, errMsg);
-      res.status(500).json({ error: errMsg });
-    }
+    const result = await positionsImpl("okx", req.body);
+    sendImpl(res, result);
   });
 
   app.post("/api/okx/history", async (req, res) => {

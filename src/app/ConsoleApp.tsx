@@ -97,7 +97,6 @@ export function ConsoleApp() {
     enabled: sessionEnabled,
     page,
     selectedSymbol,
-    sandbox: autoTrading.autoConfig?.sandbox ?? false,
   });
   const reliability = useReliabilityData({
     token,

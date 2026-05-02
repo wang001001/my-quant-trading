@@ -9,6 +9,7 @@ import {
   type RealizedPnlResponse,
   type TradeRow,
 } from "../api";
+import { useExchangeState } from "../state/exchangeStore";
 import { usePollingTask } from "./usePollingTask";
 import { usePortfolioReturnAnalytics } from "./usePortfolioReturnAnalytics";
 
@@ -17,14 +18,13 @@ export function usePortfolioData({
   enabled,
   page,
   selectedSymbol,
-  sandbox,
 }: {
   token: string;
   enabled: boolean;
   page: string;
   selectedSymbol: string;
-  sandbox: boolean;
 }) {
+  const { activeExchange } = useExchangeState();
   const [balance, setBalance] = React.useState<BalanceResponse | null>(null);
   const [positions, setPositions] = React.useState<PositionRow[]>([]);
   const [historyOrders, setHistoryOrders] = React.useState<HistoryOrderRow[]>([]);
@@ -38,30 +38,30 @@ export function usePortfolioData({
 
   const refreshPortfolio = React.useCallback(async () => {
     const [balancePayload, positionsPayload, pnlPayload] = await Promise.all([
-      postJson<BalanceResponse>("/api/okx/balance", { sandbox }, { token }),
-      postJson<PositionRow[]>("/api/okx/positions", { sandbox }, { token }),
-      postJson<RealizedPnlResponse>("/api/okx/realized-pnl", { sandbox }, { token }),
+      postJson<BalanceResponse>(`/api/${activeExchange}/balance`, {}, { token }),
+      postJson<PositionRow[]>(`/api/${activeExchange}/positions`, {}, { token }),
+      postJson<RealizedPnlResponse>(`/api/${activeExchange}/realized-pnl`, {}, { token }),
     ]);
     setBalance(balancePayload);
     setPositions(positionsPayload);
     setRealizedPnl(pnlPayload);
-  }, [sandbox, token]);
+  }, [activeExchange, token]);
 
   const refreshHistory = React.useCallback(async () => {
     const [historyPayload, tradesPayload] = await Promise.all([
-      postJson<HistoryOrderRow[]>("/api/okx/history", { symbol: selectedSymbol, sandbox }, { token }),
+      postJson<HistoryOrderRow[]>(`/api/${activeExchange}/history`, { symbol: selectedSymbol }, { token }),
       apiFetch<TradeRow[]>("/api/trades?limit=200", { token }),
     ]);
     setHistoryOrders(historyPayload);
     setLocalTrades(tradesPayload);
-  }, [sandbox, selectedSymbol, token]);
+  }, [activeExchange, selectedSymbol, token]);
 
   usePollingTask(
     React.useCallback(async () => {
       await refreshPortfolio();
     }, [refreshPortfolio]),
     enabled && (page === "dashboard" || page === "portfolio"),
-    [page, sandbox],
+    [page, activeExchange],
     20_000,
     60_000
   );
@@ -71,7 +71,7 @@ export function usePortfolioData({
       await refreshHistory();
     }, [refreshHistory]),
     enabled && page === "history",
-    [page, selectedSymbol, sandbox],
+    [page, selectedSymbol, activeExchange],
     20_000,
     60_000
   );

@@ -5886,6 +5886,29 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function orderbookImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
+  try {
+    const symbolParam = symbol || "BTC-USDT";
+    // TODO: verify Binance compatibility -- okxPublicGet / toOkxSwapInstId are OKX-specific.
+    const instId = toOkxSwapInstId(symbolParam);
+    const orderbook = await cachedPublicMarket(`orderbook:${instId}`, 3000, async () => {
+      const [raw] = await okxPublicGet("/api/v5/market/books", { instId, sz: 20 });
+      return {
+        symbol: toCcxtLikeSwapSymbol(instId),
+        timestamp: Number(raw?.ts || Date.now()),
+        datetime: new Date(Number(raw?.ts || Date.now())).toISOString(),
+        bids: (raw?.bids || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
+        asks: (raw?.asks || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
+        info: raw
+      };
+    });
+    return { ok: true, status: 200, data: orderbook };
+  } catch (error: any) {
+    console.error('[Orderbook Error]', error.message);
+    return { ok: false, status: 500, error: error.message };
+  }
+}
+
 async function tickerImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
@@ -6442,25 +6465,8 @@ async function startServer() {
   });
 
   app.get("/api/okx/orderbook/:symbol", async (req, res) => {
-    try {
-      const symbolParam = req.params.symbol || "BTC-USDT";
-      const instId = toOkxSwapInstId(symbolParam);
-      const orderbook = await cachedPublicMarket(`orderbook:${instId}`, 3000, async () => {
-        const [raw] = await okxPublicGet("/api/v5/market/books", { instId, sz: 20 });
-        return {
-          symbol: toCcxtLikeSwapSymbol(instId),
-          timestamp: Number(raw?.ts || Date.now()),
-          datetime: new Date(Number(raw?.ts || Date.now())).toISOString(),
-          bids: (raw?.bids || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
-          asks: (raw?.asks || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
-          info: raw
-        };
-      });
-      res.json(orderbook);
-    } catch (error: any) {
-      console.error('[Orderbook Error]', error.message);
-      res.status(500).json({ error: error.message });
-    }
+    const result = await orderbookImpl("okx", req.params.symbol);
+    sendImpl(res, result);
   });
 
   app.get("/api/okx/tickers", async (req, res) => {

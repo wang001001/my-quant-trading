@@ -6116,34 +6116,22 @@ async function ohlcvImpl(name: ExchangeName, symbol: string, query: any): Promis
 
 async function tickersImpl(name: ExchangeName): Promise<ImplResult> {
   try {
-    // TODO: verify Binance compatibility -- okxPublicGet / OKX-SWAP inst ids are OKX-specific.
-    const coreInstIds = new Set(["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "DOGE-USDT-SWAP"]);
-    const tickers = await cachedPublicMarket("tickers:core", 10000, async () => {
-      const rows = await okxPublicGet("/api/v5/market/tickers", { instType: "SWAP" });
-      return Object.fromEntries(rows
-        .filter((raw: any) => coreInstIds.has(raw.instId))
-        .map((raw: any) => {
-          const last = Number(raw.last || 0);
-          const open = Number(raw.open24h || last);
-          return [toCcxtLikeSwapSymbol(raw.instId), {
-            symbol: toCcxtLikeSwapSymbol(raw.instId),
-            timestamp: Number(raw.ts || Date.now()),
-            datetime: new Date(Number(raw.ts || Date.now())).toISOString(),
-            high: Number(raw.high24h || last),
-            low: Number(raw.low24h || last),
-            bid: Number(raw.bidPx || 0),
-            ask: Number(raw.askPx || 0),
-            open,
-            close: last,
-            last,
-            percentage: open ? ((last - open) / open) * 100 : 0,
-            baseVolume: Number(raw.vol24h || 0),
-            info: raw
-          }];
-        }));
+    const coreSymbols = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT", "DOGE/USDT:USDT"];
+    const tickers = await cachedPublicMarket(`tickers:${name}:core`, 10000, async () => {
+      const exchange = getPublicExchange(name);
+      const all = await runWithExchangeProxyFallback<Record<string, any>>(
+        exchange,
+        () => exchange.fetchTickers(coreSymbols)
+      );
+      const filtered: Record<string, any> = {};
+      for (const sym of coreSymbols) {
+        if (all && all[sym]) filtered[sym] = all[sym];
+      }
+      return filtered;
     });
     return { ok: true, status: 200, data: tickers };
   } catch (error: any) {
+    console.error(`[${name.toUpperCase()} Tickers Error]`, error.message);
     return { ok: false, status: 500, error: error.message };
   }
 }

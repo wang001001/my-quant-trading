@@ -1828,8 +1828,8 @@ async function fetchPublicMarketBundleWithAutoRetry(symbol: string, timeframe: s
   );
 }
 
-async function fetchPrivateBalance(credentials: Required<OkxCredentials>, sandbox: boolean, autoRetry = false) {
-  const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, sandbox);
+async function fetchPrivateBalance(credentials: Required<OkxCredentials>, _sandbox: boolean, autoRetry = false) {
+  const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
   await prepareExchange(exchange);
   const operation = () => runWithExchangeProxyFallback(exchange, () => exchange.fetchBalance());
   const balance = autoRetry
@@ -1839,8 +1839,8 @@ async function fetchPrivateBalance(credentials: Required<OkxCredentials>, sandbo
   return normalizeOkxBalance(balance);
 }
 
-async function fetchPrivatePositions(credentials: Required<OkxCredentials>, sandbox: boolean, autoRetry = false) {
-  const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, sandbox);
+async function fetchPrivatePositions(credentials: Required<OkxCredentials>, _sandbox: boolean, autoRetry = false) {
+  const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
   await prepareExchange(exchange);
   const operation = () => runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
   const positions = autoRetry
@@ -2828,11 +2828,11 @@ function normalizeOkxPortfolioBill(row: any, mode: PortfolioReturnMode): Portfol
 
 async function fetchPortfolioAccountBills(
   credentials: Required<OkxCredentials>,
-  sandbox: boolean,
+  _sandbox: boolean,
   mode: PortfolioReturnMode,
   limit: number
 ) {
-  const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, sandbox);
+  const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
   await prepareExchange(exchange);
   const response = await runWithExchangeProxyFallback<any>(exchange, () => (exchange as any).privateGetAccountBills({
     ccy: "USDT",
@@ -3938,7 +3938,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
   }
 
   try {
-    const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, isSandbox);
+    const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
     await prepareExchange(exchange);
     const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
     await exchangeCall(() => exchange.loadMarkets());
@@ -4856,7 +4856,7 @@ class TakeProfitManager {
           continue;
         }
 
-        const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, managedOrder.sandbox);
+        const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
         await prepareExchange(exchange);
         const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
         const positionKey = String(managedOrder.sandbox);
@@ -6388,12 +6388,9 @@ async function startServer() {
 
   // API Routes
   app.post("/api/okx/balance", async (req, res) => {
-    const { sandbox = false } = req.body;
-    
-    const isSandbox = String(sandbox) === 'true' || sandbox === true;
-    const credentials = resolveOkxCredentials(req.body, isSandbox);
+    const credentials = resolveCredentialsFor("okx", req.body);
 
-    console.log(`[OKX Balance Request] Mode: ${isSandbox ? 'DEMO' : 'REAL'}`);
+    console.log(`[OKX Balance Request]`);
     console.log(`- API Key: ${credentials?.apiKey ? credentials.apiKey.substring(0, 5) + '...' : 'MISSING'}`);
 
     if (!credentials) {
@@ -6401,7 +6398,7 @@ async function startServer() {
     }
 
     try {
-       const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, isSandbox);
+       const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
        await prepareExchange(exchange);
        const balance = normalizeOkxBalance(await runWithExchangeProxyFallback(exchange, () => exchange.fetchBalance()));
        
@@ -6415,13 +6412,12 @@ async function startServer() {
        res.json(balance);
      } catch (error: any) {
       const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Balance Error] Mode: ${isSandbox ? 'DEMO' : 'REAL'}`, errMsg);
+      console.error(`[OKX Balance Error]`, errMsg);
       if (error.stack) console.error('[OKX Balance Error Stack]', error.stack);
-      const isEnvError = errMsg.includes('50101') || errMsg.includes('APIKey does not match');
-      const hint = isEnvError ? " (璇锋鏌ュ綋鍓嶈处鎴锋ā寮忎笌 API Key 鏄惁鍖归厤锛涙ā鎷熺洏鍜屽疄鐩樺繀椤讳娇鐢ㄥ悇鑷嫭绔嬬殑鍑嵁)" : "";
-      res.status(500).json({ error: `okx ${errMsg}${hint}` });
+      res.status(500).json({ error: `okx ${errMsg}` });
     }
   });
+
 
   app.get("/api/okx/ticker/:symbol", async (req, res) => {
     try {
@@ -6963,53 +6959,50 @@ async function startServer() {
   });
 
   app.post("/api/okx/positions", async (req, res) => {
-    const { sandbox = false } = req.body;
-    const isSandbox = String(sandbox) === 'true' || sandbox === true;
-    const credentials = resolveOkxCredentials(req.body, isSandbox);
+    const credentials = resolveCredentialsFor("okx", req.body);
 
     if (!credentials) {
       return res.status(400).json({ error: "Missing OKX credentials" });
     }
 
     try {
-      const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, isSandbox);
+      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
       await prepareExchange(exchange);
-      console.log(`[OKX Positions Request] Mode: ${isSandbox ? 'DEMO' : 'REAL'}`);
-      
+      console.log(`[OKX Positions Request]`);
+
       // For OKX, we might want to fetch positions for swap specifically if needed
       const positions = await runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
-      
+
       const activePositions = positions
         .map(normalizeOkxPosition)
         .filter((p: any) => Math.abs(Number(p.contracts || 0)) > 0);
-      
+
       console.log(`[OKX Positions] Found ${activePositions.length} active positions`);
       res.json(activePositions);
     } catch (error: any) {
       const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Positions Error] Mode: ${isSandbox ? 'DEMO' : 'REAL'}`, errMsg);
+      console.error(`[OKX Positions Error]`, errMsg);
       res.status(500).json({ error: errMsg });
     }
   });
 
   app.post("/api/okx/history", async (req, res) => {
-    const { symbol, sandbox = false } = req.body;
-    const isSandbox = String(sandbox) === 'true' || sandbox === true;
-    const credentials = resolveOkxCredentials(req.body, isSandbox);
+    const { symbol } = req.body;
+    const credentials = resolveCredentialsFor("okx", req.body);
 
     if (!credentials) {
       return res.status(400).json({ error: "Missing OKX credentials" });
     }
 
     try {
-      const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, isSandbox);
+      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
       await prepareExchange(exchange);
       const targetSymbol = symbol || "BTC/USDT";
       const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
       await exchangeCall(() => exchange.loadMarkets());
       const resolvedMarket = await resolveOkxSwapMarket(targetSymbol, exchange);
       console.log(
-        `[OKX History Request] Symbol: ${targetSymbol}, Resolved: ${resolvedMarket.instId}, Mode: ${isSandbox ? 'DEMO' : 'REAL'}`
+        `[OKX History Request] Symbol: ${targetSymbol}, Resolved: ${resolvedMarket.instId}`
       );
       
       try {
@@ -7045,22 +7038,20 @@ async function startServer() {
       }
     } catch (error: any) {
       const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX History Error] Symbol: ${symbol || 'BTC/USDT'}, Mode: ${isSandbox ? 'DEMO' : 'REAL'}`, errMsg);
+      console.error(`[OKX History Error] Symbol: ${symbol || 'BTC/USDT'}`, errMsg);
       res.status(500).json({ error: errMsg });
     }
   });
 
   app.post("/api/okx/realized-pnl", async (req, res) => {
-    const { sandbox = false } = req.body;
-    const isSandbox = String(sandbox) === 'true' || sandbox === true;
-    const credentials = resolveOkxCredentials(req.body, isSandbox);
+    const credentials = resolveCredentialsFor("okx", req.body);
 
     if (!credentials) {
       return res.status(400).json({ error: "Missing OKX credentials" });
     }
 
     try {
-      const exchange = getPrivateExchange(credentials.apiKey, credentials.secret, credentials.password, isSandbox);
+      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
       await prepareExchange(exchange);
       const dayStart = new Date();
       dayStart.setHours(0, 0, 0, 0);
@@ -7117,7 +7108,7 @@ async function startServer() {
       });
     } catch (error: any) {
       const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Realized PnL Error] Mode: ${isSandbox ? 'DEMO' : 'REAL'}`, errMsg);
+      console.error(`[OKX Realized PnL Error]`, errMsg);
       res.status(500).json({ error: errMsg });
     }
   });

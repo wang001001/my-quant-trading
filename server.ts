@@ -416,6 +416,49 @@ async function writeFileAtomic(filePath: string, contents: string, options?: { m
   }
 }
 
+// --- Exchange Adapter ---
+type ExchangeName = "okx" | "binance";
+
+const VALID_EXCHANGES: readonly ExchangeName[] = ["okx", "binance"] as const;
+
+function isExchangeName(value: unknown): value is ExchangeName {
+  return typeof value === "string" && (VALID_EXCHANGES as readonly string[]).includes(value);
+}
+
+function getExchangeCtor(name: ExchangeName) {
+  return name === "binance" ? (ccxt as any).binance : (ccxt as any).okx;
+}
+
+function buildExchangeOptions(name: ExchangeName) {
+  if (name === "binance") {
+    return {
+      defaultType: "future",
+      fetchMarkets: ["linear"] as string[],
+      fetchCurrencies: false,
+    };
+  }
+  return {
+    defaultType: "swap",
+    fetchMarkets: { types: ["swap", "spot"] },
+  };
+}
+
+const publicExchanges = new Map<ExchangeName, any>();
+
+function getPublicExchange(name: ExchangeName) {
+  if (!publicExchanges.has(name)) {
+    const Ctor = getExchangeCtor(name);
+    const ex = new Ctor({
+      enableRateLimit: true,
+      timeout: OKX_AUTO_DATA_REQUEST_TIMEOUT_MS,
+      options: buildExchangeOptions(name),
+    });
+    applyExchangeProxy(ex);
+    publicExchanges.set(name, ex);
+  }
+  return publicExchanges.get(name);
+}
+
 // --- Global Exchange Instances (for reuse) ---
 
 function getPrivateExchange(apiKey: string, secret: string, password: string, sandbox: boolean) {

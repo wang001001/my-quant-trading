@@ -5893,8 +5893,16 @@ function sendImpl(res: any, result: ImplResult) {
 }
 
 async function orderImpl(name: ExchangeName, body: any, operator: string): Promise<ImplResult> {
+  if (name === "binance") {
+    // TODO(follow-up): Implement Binance order placement. submitOkxOrder is
+    // tightly coupled to OKX (TP/SL via algo orders, lever endpoint,
+    // contract-size unit conversion, audit-log shape); a Binance equivalent
+    // needs its own leverage / margin-mode setup, USDT-M createOrder call,
+    // and contract-size handling before it can satisfy the same audit /
+    // risk-gate contract. Returning 501 keeps the route honest until then.
+    return { ok: false, status: 501, error: "Binance order placement not yet implemented" };
+  }
   try {
-    // TODO: verify Binance compatibility -- submitOkxOrder is OKX-specific; Phase 5 will introduce a Binance equivalent.
     const result = await submitOkxOrder(body || {}, operator);
     return { ok: true, status: 200, data: result };
   } catch (error: any) {

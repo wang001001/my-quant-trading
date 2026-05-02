@@ -7209,6 +7209,19 @@ async function startServer() {
     res.json({ activeExchange });
   });
 
+  app.post("/api/settings/binance-credentials", async (req, res) => {
+    const { apiKey, secret } = req.body || {};
+    if (!hasText(apiKey) || !hasText(secret)) {
+      return res.status(400).json({ error: "apiKey and secret are required" });
+    }
+    credentialStore.binance = {
+      apiKey: String(apiKey).trim(),
+      secret: String(secret).trim(),
+    };
+    await persistCredentialStore();
+    res.json({ ok: true, hasBinance: true });
+  });
+
   app.post("/api/notify", async (req, res) => {
     const { subject, message } = req.body;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {

@@ -14,6 +14,7 @@ import { useToast } from "./hooks/useToast";
 import { HeaderBar } from "./layout/HeaderBar";
 import { Sidebar } from "./layout/Sidebar";
 import { ToastView } from "./layout/ToastView";
+import { setExchangeState } from "./state/exchangeStore";
 import { DashboardPage } from "./pages/DashboardPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { PortfolioPage } from "./pages/PortfolioPage";
@@ -125,6 +126,14 @@ export function ConsoleApp() {
   React.useEffect(() => {
     persistUiPref(UI_TIMEFRAME_KEY, chartTimeframe);
   }, [chartTimeframe]);
+
+  React.useEffect(() => {
+    apiFetch<{ activeExchange: "okx" | "binance"; hasOkx: boolean; hasBinance: boolean }>(
+      "/api/settings/exchange"
+    )
+      .then((s) => setExchangeState(s))
+      .catch((err) => console.warn("[exchangeStore] init failed", err));
+  }, []);
 
   const refreshConfigStatus = React.useCallback(async () => {
     const status = await apiFetch<ConfigStatus>("/api/config/status", token ? { token } : {});

@@ -5914,13 +5914,26 @@ async function realizedPnlImpl(name: ExchangeName, body: any): Promise<ImplResul
     return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
   }
 
+  if (name === "binance") {
+    // TODO(follow-up): Implement Binance realized PnL via fapiPrivateGetIncome
+    // (income types REALIZED_PNL / FUNDING_FEE) and reuse updatePersistentRiskState.
+    console.warn("[realizedPnlImpl] Binance realized PnL not yet implemented; returning empty rows");
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const riskState = updatePersistentRiskState({ dailyPnL: 0, consecutiveStopLosses: 0 });
+    return {
+      ok: true,
+      status: 200,
+      data: { date: todayKey(dayStart), dailyPnL: 0, consecutiveLosses: 0, riskState, rows: [] },
+    };
+  }
+
   try {
     const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
     await prepareExchange(exchange);
     const dayStart = new Date();
     dayStart.setHours(0, 0, 0, 0);
     const dayStartMs = dayStart.getTime();
-    // TODO: verify Binance compatibility -- privateGetAccountBills + OKX bill type/subType filters are OKX-specific.
     const response = await runWithExchangeProxyFallback<any>(exchange, () => (exchange as any).privateGetAccountBills({
       ccy: "USDT",
       limit: "100",
@@ -5990,13 +6003,19 @@ async function historyImpl(name: ExchangeName, body: any): Promise<ImplResult> {
     return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
   }
 
+  if (name === "binance") {
+    // TODO(follow-up): Implement Binance order history via fetchOrders /
+    // fetchOpenOrders / fetchClosedOrders + a Binance-shaped normalizer.
+    console.warn("[historyImpl] Binance order history not yet implemented; returning empty array");
+    return { ok: true, status: 200, data: [] };
+  }
+
   try {
     const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
     await prepareExchange(exchange);
     const targetSymbol = symbol || "BTC/USDT";
     const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
     await exchangeCall(() => exchange.loadMarkets());
-    // TODO: verify Binance compatibility -- resolveOkxSwapMarket + privateGetTradeOrders* + unwrapOkxApiRows + normalizeOkxHistoryOrder are OKX-specific.
     const resolvedMarket = await resolveOkxSwapMarket(targetSymbol, exchange);
     console.log(
       `[${name.toUpperCase()} History Request] Symbol: ${targetSymbol}, Resolved: ${resolvedMarket.instId}`

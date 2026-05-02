@@ -6040,6 +6040,35 @@ async function historyImpl(name: ExchangeName, body: any): Promise<ImplResult> {
   }
 }
 
+function normalizeBinancePosition(position: any) {
+  const info = position?.info || {};
+  const contracts = Math.abs(firstNumber(position?.contracts, info.positionAmt, info.positionAmount));
+  const sideRaw = String(position?.side || "").toLowerCase();
+  const positionAmt = firstNumber(info.positionAmt, info.positionAmount);
+  const side = sideRaw === "short"
+    ? "short"
+    : sideRaw === "long"
+      ? "long"
+      : positionAmt < 0 ? "short" : "long";
+  const entryPrice = firstNumber(position?.entryPrice, info.entryPrice);
+  const markPrice = firstNumber(position?.markPrice, info.markPrice, entryPrice);
+  const unrealizedPnl = firstNumber(position?.unrealizedPnl, info.unRealizedProfit, info.unrealizedProfit);
+  const leverage = firstNumber(position?.leverage, info.leverage);
+  const notionalUsd = Math.abs(firstNumber(position?.notional, info.notional, contracts * markPrice));
+
+  return {
+    ...position,
+    symbol: position?.symbol || info.symbol || "",
+    side,
+    contracts,
+    entryPrice,
+    markPrice,
+    unrealizedPnl,
+    leverage,
+    notionalUsd,
+  };
+}
+
 async function positionsImpl(name: ExchangeName, body: any): Promise<ImplResult> {
   const credentials = resolveCredentialsFor(name, body);
 
@@ -6052,8 +6081,19 @@ async function positionsImpl(name: ExchangeName, body: any): Promise<ImplResult>
     await prepareExchange(exchange);
     console.log(`[${name.toUpperCase()} Positions Request]`);
 
-    // For OKX, we might want to fetch positions for swap specifically if needed
-    // TODO: verify Binance compatibility -- instType "SWAP" param + normalizeOkxPosition are OKX-specific.
+    if (name === "binance") {
+      const positions = await runWithExchangeProxyFallback<any[]>(
+        exchange,
+        () => exchange.fetchPositions()
+      );
+      const activePositions = (positions || [])
+        .map(normalizeBinancePosition)
+        .filter((p: any) => Math.abs(Number(p.contracts || 0)) > 0);
+      console.log(`[${name.toUpperCase()} Positions] Found ${activePositions.length} active positions`);
+      return { ok: true, status: 200, data: activePositions };
+    }
+
+    // OKX path: use SWAP-specific instType + normalizeOkxPosition.
     const positions = await runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
 
     const activePositions = positions

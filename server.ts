@@ -3084,6 +3084,11 @@ type CredentialStore = {
   okx?: OkxCredentials;
   okxDemo?: OkxCredentials;
   ai?: AiProxyCredentials;
+  activeExchange?: ExchangeName;
+  binance?: {
+    apiKey?: string;
+    secret?: string;
+  };
 };
 
 let credentialStore: CredentialStore = {};

@@ -6072,24 +6072,15 @@ async function positionsImpl(name: ExchangeName, body: any): Promise<ImplResult>
 async function fundingImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
-    // TODO: verify Binance compatibility -- okxPublicGet / OKX funding-rate path is OKX-specific.
-    const instId = toOkxSwapInstId(symbolParam);
-    const funding = await cachedPublicMarket(`funding:${instId}`, 60000, async () => {
-      const [raw] = await okxPublicGet("/api/v5/public/funding-rate", { instId });
-      return {
-        symbol: toCcxtLikeSwapSymbol(instId),
-        fundingRate: Number(raw?.fundingRate || 0),
-        nextFundingRate: Number(raw?.nextFundingRate || 0),
-        fundingTimestamp: Number(raw?.fundingTime || 0),
-        nextFundingTime: Number(raw?.nextFundingTime || 0),
-        timestamp: Date.now(),
-        info: raw
-      };
+    const ccxtSymbol = toCcxtSymbol(symbolParam);
+    const funding = await cachedPublicMarket(`funding:${name}:${ccxtSymbol}`, 60000, async () => {
+      const exchange = getPublicExchange(name);
+      return await runWithExchangeProxyFallback(exchange, () => exchange.fetchFundingRate(ccxtSymbol));
     });
     return { ok: true, status: 200, data: funding };
   } catch (error: any) {
     const finalErrMsg = error?.message || "Funding rate fetch failed";
-    console.error('[Funding Error]', finalErrMsg);
+    console.error(`[${name.toUpperCase()} Funding Error]`, finalErrMsg);
     return { ok: false, status: 500, error: finalErrMsg };
   }
 }
@@ -6097,19 +6088,22 @@ async function fundingImpl(name: ExchangeName, symbol: string): Promise<ImplResu
 async function ohlcvImpl(name: ExchangeName, symbol: string, query: any): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
-    // TODO: verify Binance compatibility -- okxPublicGet / OKX bar codes are OKX-specific.
-    const instId = toOkxSwapInstId(symbolParam);
+    const ccxtSymbol = toCcxtSymbol(symbolParam);
     const timeframe = (query?.t as string) || "1h";
     const limit = Math.min(300, Math.max(24, Number(query?.limit || 120)));
-    const ohlcv = await cachedPublicMarket(`ohlcv:${instId}:${timeframe}:${limit}`, 60000, async () => {
-      const rows = await okxPublicGet("/api/v5/market/candles", { instId, bar: okxBar(timeframe), limit });
-      return rows
-        .map((row: string[]) => [Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5])])
+    const ohlcv = await cachedPublicMarket(`ohlcv:${name}:${ccxtSymbol}:${timeframe}:${limit}`, 60000, async () => {
+      const exchange = getPublicExchange(name);
+      const rows = await runWithExchangeProxyFallback<any[]>(
+        exchange,
+        () => exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit)
+      );
+      return (rows || [])
+        .map((row: any[]) => [Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5])])
         .sort((a: number[], b: number[]) => a[0] - b[0]);
     });
     return { ok: true, status: 200, data: ohlcv };
   } catch (error: any) {
-    console.error('[OHLCV Error]', error.message);
+    console.error(`[${name.toUpperCase()} OHLCV Error]`, error.message);
     return { ok: false, status: 500, error: error.message };
   }
 }
@@ -6139,22 +6133,14 @@ async function tickersImpl(name: ExchangeName): Promise<ImplResult> {
 async function orderbookImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
-    // TODO: verify Binance compatibility -- okxPublicGet / toOkxSwapInstId are OKX-specific.
-    const instId = toOkxSwapInstId(symbolParam);
-    const orderbook = await cachedPublicMarket(`orderbook:${instId}`, 3000, async () => {
-      const [raw] = await okxPublicGet("/api/v5/market/books", { instId, sz: 20 });
-      return {
-        symbol: toCcxtLikeSwapSymbol(instId),
-        timestamp: Number(raw?.ts || Date.now()),
-        datetime: new Date(Number(raw?.ts || Date.now())).toISOString(),
-        bids: (raw?.bids || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
-        asks: (raw?.asks || []).map((row: string[]) => [Number(row[0]), Number(row[1])]),
-        info: raw
-      };
+    const ccxtSymbol = toCcxtSymbol(symbolParam);
+    const orderbook = await cachedPublicMarket(`orderbook:${name}:${ccxtSymbol}`, 3000, async () => {
+      const exchange = getPublicExchange(name);
+      return await runWithExchangeProxyFallback(exchange, () => exchange.fetchOrderBook(ccxtSymbol, 20));
     });
     return { ok: true, status: 200, data: orderbook };
   } catch (error: any) {
-    console.error('[Orderbook Error]', error.message);
+    console.error(`[${name.toUpperCase()} Orderbook Error]`, error.message);
     return { ok: false, status: 500, error: error.message };
   }
 }

@@ -1,6 +1,7 @@
 import React from "react";
 
 import { apiFetch, type MacroResponse } from "../api";
+import { useExchangeState } from "../state/exchangeStore";
 import { usePollingTask } from "./usePollingTask";
 import {
   buildMarketRuntimeContext,
@@ -23,6 +24,7 @@ export function useMarketData({
   selectedSymbol: string;
   chartTimeframe: "15m" | "1h";
 }) {
+  const { activeExchange } = useExchangeState();
   const [runtimeMarket, setRuntimeMarket] = React.useState<RuntimeMarketState>({
     tickers: {},
     ticker: null,
@@ -37,13 +39,14 @@ export function useMarketData({
     async (signal?: AbortSignal) => {
       const [tickersResult, tickerResult, orderBookResult, fundingResult, ohlcvResult, macroResult] =
         await Promise.allSettled([
-        apiFetch<Record<string, Ticker>>("/api/okx/tickers", { signal }),
-        apiFetch<any>(`/api/okx/ticker/${encodeURIComponent(selectedSymbol)}`, { signal }),
-        apiFetch<OrderBook>(`/api/okx/orderbook/${encodeURIComponent(selectedSymbol)}`, { signal }),
-        apiFetch<Record<string, unknown>>(`/api/okx/funding/${encodeURIComponent(selectedSymbol)}`, { signal }),
-        apiFetch<number[][]>(`/api/okx/ohlcv/${encodeURIComponent(selectedSymbol)}?t=${chartTimeframe}&limit=120`, {
-          signal,
-        }),
+        apiFetch<Record<string, Ticker>>(`/api/${activeExchange}/tickers`, { signal }),
+        apiFetch<any>(`/api/${activeExchange}/ticker/${encodeURIComponent(selectedSymbol)}`, { signal }),
+        apiFetch<OrderBook>(`/api/${activeExchange}/orderbook/${encodeURIComponent(selectedSymbol)}`, { signal }),
+        apiFetch<Record<string, unknown>>(`/api/${activeExchange}/funding/${encodeURIComponent(selectedSymbol)}`, { signal }),
+        apiFetch<number[][]>(
+          `/api/${activeExchange}/ohlcv/${encodeURIComponent(selectedSymbol)}?t=${chartTimeframe}&limit=120`,
+          { signal }
+        ),
         apiFetch<MacroResponse>("/api/macro", { signal }),
       ]);
 
@@ -95,7 +98,7 @@ export function useMarketData({
         };
       });
     },
-    [chartTimeframe, selectedSymbol]
+    [activeExchange, chartTimeframe, selectedSymbol]
   );
 
   usePollingTask(
@@ -103,7 +106,7 @@ export function useMarketData({
       await refreshSelectedMarket(signal);
     }, [refreshSelectedMarket]),
     enabled && (page === "dashboard" || page === "market"),
-    [page, selectedSymbol, chartTimeframe],
+    [activeExchange, page, selectedSymbol, chartTimeframe],
     8_000,
     30_000
   );

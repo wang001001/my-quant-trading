@@ -2846,7 +2846,7 @@ async function fetchPortfolioAccountBills(
 
 async function fetchPortfolioExchangeReturns(mode: PortfolioReturnMode, limit: number) {
   const sandbox = mode === "demo";
-  const credentials = resolveOkxCredentials({}, sandbox);
+  const credentials = resolveOkxCredentials({});
   if (!credentials) {
     const error = new Error(portfolioCredentialError(mode)) as Error & { status?: number };
     error.status = 400;
@@ -3113,18 +3113,12 @@ function envText(...names: string[]) {
   return undefined;
 }
 
-function getOkxEnvCredentials(sandbox: boolean): OkxCredentials {
-  return sandbox
-    ? {
-        apiKey: envText("OKX_DEMO_API_KEY", "OKX_SIM_API_KEY", "OKX_PAPER_API_KEY"),
-        secret: envText("OKX_DEMO_SECRET_KEY", "OKX_DEMO_SECRET", "OKX_SIM_SECRET_KEY", "OKX_PAPER_SECRET_KEY"),
-        password: envText("OKX_DEMO_PASSPHRASE", "OKX_DEMO_PASSWORD", "OKX_DEMO_PASS", "OKX_SIM_PASSPHRASE", "OKX_PAPER_PASSPHRASE"),
-      }
-    : {
-        apiKey: envText("OKX_API_KEY", "OKX_LIVE_API_KEY"),
-        secret: envText("OKX_SECRET_KEY", "OKX_SECRET", "OKX_LIVE_SECRET_KEY"),
-        password: envText("OKX_PASSPHRASE", "OKX_PASSWORD", "OKX_PASS", "OKX_LIVE_PASSPHRASE"),
-      };
+function getOkxEnvCredentials(): OkxCredentials {
+  return {
+    apiKey: envText("OKX_API_KEY", "OKX_LIVE_API_KEY"),
+    secret: envText("OKX_SECRET_KEY", "OKX_SECRET", "OKX_LIVE_SECRET_KEY"),
+    password: envText("OKX_PASSPHRASE", "OKX_PASSWORD", "OKX_PASS", "OKX_LIVE_PASSPHRASE"),
+  };
 }
 
 function getZhipuConfig(task: "decision" | "summary" | "vision" = "decision", body: any = {}) {
@@ -3233,8 +3227,7 @@ async function persistCredentialStore() {
 }
 
 function sanitizedCredentialStatus() {
-  const envOkxLive = hasOkxCredentials(getOkxEnvCredentials(false));
-  const envOkxDemo = hasOkxCredentials(getOkxEnvCredentials(true));
+  const envOkxLive = hasOkxCredentials(getOkxEnvCredentials());
   const envZhipu = !!hasText(process.env.ZHIPU_API_KEY);
   const storedOkxLive = hasOkxCredentials(credentialStore.okx);
   const storedOkxDemo = hasOkxCredentials(credentialStore.okxDemo);
@@ -3243,23 +3236,23 @@ function sanitizedCredentialStatus() {
   return {
     okx: envOkxLive || storedOkxLive,
     okxLive: envOkxLive || storedOkxLive,
-    okxDemo: envOkxDemo || storedOkxDemo,
+    okxDemo: storedOkxDemo,
     ai: envZhipu || storedAiProxy,
     aiProxy: envZhipu || storedAiProxy,
     zhipu: envZhipu || storedAiProxy,
     smtp: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
     sources: {
       okxLive: envOkxLive ? "env" : storedOkxLive ? "vault" : null,
-      okxDemo: envOkxDemo ? "env" : storedOkxDemo ? "vault" : null,
+      okxDemo: storedOkxDemo ? "vault" : null,
       aiProxy: envZhipu ? "env" : storedAiProxy ? "vault" : null,
       smtp: process.env.SMTP_USER && process.env.SMTP_PASS ? "env" : null,
     },
   };
 }
 
-function resolveOkxCredentials(body: any, sandbox: boolean): Required<OkxCredentials> | null {
-  const env = getOkxEnvCredentials(sandbox);
-  const stored = sandbox ? credentialStore.okxDemo : credentialStore.okx;
+function resolveOkxCredentials(body: any): Required<OkxCredentials> | null {
+  const env = getOkxEnvCredentials();
+  const stored = credentialStore.okx;
   const credentials = {
     apiKey: body?.apiKey || env.apiKey || stored?.apiKey,
     secret: body?.secret || env.secret || stored?.secret,
@@ -3278,8 +3271,8 @@ function resolveCredentialsFor(name: ExchangeName, body: any = {}) {
     if (!hasText(apiKey) || !hasText(secret)) return null;
     return { apiKey, secret, password: undefined as string | undefined };
   }
-  // OKX path — delegate to existing helper, but always live (no sandbox).
-  return resolveOkxCredentials(body, false);
+  // OKX path — delegate to existing helper.
+  return resolveOkxCredentials(body);
 }
 
 function resolveActiveExchangeName(): ExchangeName {
@@ -3899,7 +3892,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
     raw: { request: orderRequest, operator },
   });
 
-  const credentials = resolveOkxCredentials(orderRequest, isSandbox);
+  const credentials = resolveOkxCredentials(orderRequest);
   if (!credentials) {
     addOrderLifecycle({
       requestId,
@@ -4350,8 +4343,8 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
   }
 }
 
-function resolveEngineCredentials(sandbox: boolean) {
-  return resolveOkxCredentials({}, sandbox);
+function resolveEngineCredentials(_sandbox: boolean) {
+  return resolveOkxCredentials({});
 }
 
 function currentMacroSnapshot() {

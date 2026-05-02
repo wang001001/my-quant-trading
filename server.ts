@@ -5886,6 +5886,81 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function realizedPnlImpl(name: ExchangeName, body: any): Promise<ImplResult> {
+  const credentials = resolveCredentialsFor(name, body);
+
+  if (!credentials) {
+    return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
+  }
+
+  try {
+    const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
+    await prepareExchange(exchange);
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const dayStartMs = dayStart.getTime();
+    // TODO: verify Binance compatibility -- privateGetAccountBills + OKX bill type/subType filters are OKX-specific.
+    const response = await runWithExchangeProxyFallback<any>(exchange, () => (exchange as any).privateGetAccountBills({
+      ccy: "USDT",
+      limit: "100",
+    }));
+    const rawRows = Array.isArray(response?.data) ? response.data : [];
+    const rows = rawRows.map((row: any) => {
+      const timestamp = firstNumber(row.ts, row.uTime, row.cTime);
+      const pnl = firstNumber(row.pnl);
+      return {
+        id: row.billId || row.ordId || `${timestamp}_${row.type || ""}_${row.subType || ""}`,
+        timestamp,
+        pnl,
+        fee: firstNumber(row.fee),
+        balanceChange: firstNumber(row.balChg),
+        type: row.type,
+        subType: row.subType,
+        ccy: row.ccy,
+        symbol: row.instId,
+      };
+    }).filter((row: any) => Number.isFinite(row.timestamp) && row.timestamp > 0);
+
+    const realizedRows = rows
+      .filter((row: any) => row.pnl !== 0)
+      .sort((a: any, b: any) => b.timestamp - a.timestamp);
+    const riskCountRows = realizedRows.filter((row: any) => {
+      const type = String(row.type || "");
+      const subType = String(row.subType || "");
+      // Funding-fee bills are realized balance changes, but they are not losing trades.
+      return type !== "8" && subType !== "173" && subType !== "174";
+    });
+    const dailyPnL = realizedRows
+      .filter((row: any) => row.timestamp >= dayStartMs)
+      .reduce((acc: number, row: any) => acc + row.pnl, 0);
+    let consecutiveLosses = 0;
+    for (const row of riskCountRows) {
+      if (row.pnl < 0) consecutiveLosses += 1;
+      else if (row.pnl > 0) break;
+    }
+    const riskState = updatePersistentRiskState({
+      dailyPnL,
+      consecutiveStopLosses: consecutiveLosses,
+    });
+
+    return {
+      ok: true,
+      status: 200,
+      data: {
+        date: todayKey(dayStart),
+        dailyPnL,
+        consecutiveLosses,
+        riskState,
+        rows: realizedRows.slice(0, 100),
+      },
+    };
+  } catch (error: any) {
+    const errMsg = error?.message || String(error || "Unknown Error");
+    console.error(`[${name.toUpperCase()} Realized PnL Error]`, errMsg);
+    return { ok: false, status: 500, error: errMsg };
+  }
+}
+
 async function historyImpl(name: ExchangeName, body: any): Promise<ImplResult> {
   const { symbol } = body || {};
   const credentials = resolveCredentialsFor(name, body);
@@ -7067,73 +7142,8 @@ async function startServer() {
   });
 
   app.post("/api/okx/realized-pnl", async (req, res) => {
-    const credentials = resolveCredentialsFor("okx", req.body);
-
-    if (!credentials) {
-      return res.status(400).json({ error: "Missing OKX credentials" });
-    }
-
-    try {
-      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
-      await prepareExchange(exchange);
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const dayStartMs = dayStart.getTime();
-      const response = await runWithExchangeProxyFallback<any>(exchange, () => (exchange as any).privateGetAccountBills({
-        ccy: "USDT",
-        limit: "100",
-      }));
-      const rawRows = Array.isArray(response?.data) ? response.data : [];
-      const rows = rawRows.map((row: any) => {
-        const timestamp = firstNumber(row.ts, row.uTime, row.cTime);
-        const pnl = firstNumber(row.pnl);
-        return {
-          id: row.billId || row.ordId || `${timestamp}_${row.type || ""}_${row.subType || ""}`,
-          timestamp,
-          pnl,
-          fee: firstNumber(row.fee),
-          balanceChange: firstNumber(row.balChg),
-          type: row.type,
-          subType: row.subType,
-          ccy: row.ccy,
-          symbol: row.instId,
-        };
-      }).filter((row: any) => Number.isFinite(row.timestamp) && row.timestamp > 0);
-
-      const realizedRows = rows
-        .filter((row: any) => row.pnl !== 0)
-        .sort((a: any, b: any) => b.timestamp - a.timestamp);
-      const riskCountRows = realizedRows.filter((row: any) => {
-        const type = String(row.type || "");
-        const subType = String(row.subType || "");
-        // Funding-fee bills are realized balance changes, but they are not losing trades.
-        return type !== "8" && subType !== "173" && subType !== "174";
-      });
-      const dailyPnL = realizedRows
-        .filter((row: any) => row.timestamp >= dayStartMs)
-        .reduce((acc: number, row: any) => acc + row.pnl, 0);
-      let consecutiveLosses = 0;
-      for (const row of riskCountRows) {
-        if (row.pnl < 0) consecutiveLosses += 1;
-        else if (row.pnl > 0) break;
-      }
-      const riskState = updatePersistentRiskState({
-        dailyPnL,
-        consecutiveStopLosses: consecutiveLosses,
-      });
-
-      res.json({
-        date: todayKey(dayStart),
-        dailyPnL,
-        consecutiveLosses,
-        riskState,
-        rows: realizedRows.slice(0, 100),
-      });
-    } catch (error: any) {
-      const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Realized PnL Error]`, errMsg);
-      res.status(500).json({ error: errMsg });
-    }
+    const result = await realizedPnlImpl("okx", req.body);
+    sendImpl(res, result);
   });
 
   app.post("/api/okx/order", async (req, res) => {

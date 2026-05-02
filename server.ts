@@ -7199,6 +7199,16 @@ async function startServer() {
     });
   });
 
+  app.post("/api/settings/exchange", async (req, res) => {
+    const { activeExchange } = req.body || {};
+    if (!isExchangeName(activeExchange)) {
+      return res.status(400).json({ error: "activeExchange must be 'okx' or 'binance'" });
+    }
+    credentialStore.activeExchange = activeExchange;
+    await persistCredentialStore();
+    res.json({ activeExchange });
+  });
+
   app.post("/api/notify", async (req, res) => {
     const { subject, message } = req.body;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {

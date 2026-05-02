@@ -5886,6 +5886,64 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function historyImpl(name: ExchangeName, body: any): Promise<ImplResult> {
+  const { symbol } = body || {};
+  const credentials = resolveCredentialsFor(name, body);
+
+  if (!credentials) {
+    return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
+  }
+
+  try {
+    const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
+    await prepareExchange(exchange);
+    const targetSymbol = symbol || "BTC/USDT";
+    const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
+    await exchangeCall(() => exchange.loadMarkets());
+    // TODO: verify Binance compatibility -- resolveOkxSwapMarket + privateGetTradeOrders* + unwrapOkxApiRows + normalizeOkxHistoryOrder are OKX-specific.
+    const resolvedMarket = await resolveOkxSwapMarket(targetSymbol, exchange);
+    console.log(
+      `[${name.toUpperCase()} History Request] Symbol: ${targetSymbol}, Resolved: ${resolvedMarket.instId}`
+    );
+
+    try {
+      const instId = resolvedMarket.instId;
+      const instType = "SWAP";
+
+      const [openOrdersResponse, historyOrdersResponse, archivedOrdersResponse] = await Promise.all([
+        retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersPending({ instType, instId, limit: "100" }))),
+        retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersHistory({ instType, instId, limit: "100" }))).catch(() => ({ code: "0", data: [] })),
+        retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersHistoryArchive({ instType, instId, limit: "100" }))).catch(() => ({ code: "0", data: [] })),
+      ]);
+
+      const allOrders = [
+        ...unwrapOkxApiRows(openOrdersResponse),
+        ...unwrapOkxApiRows(historyOrdersResponse),
+        ...unwrapOkxApiRows(archivedOrdersResponse),
+      ].map((row: any) => normalizeOkxHistoryOrder(row, resolvedMarket));
+
+      const uniqueOrders = Array.from(new Map(allOrders.map((item: any) => [item.id || item.clientOrderId, item])).values())
+        .filter((item: any) => item?.id || item?.clientOrderId);
+      uniqueOrders.sort((a, b) => b.timestamp - a.timestamp);
+
+      return { ok: true, status: 200, data: uniqueOrders };
+    } catch (e) {
+      console.warn(`[${name.toUpperCase()} History] Primary fetch failed, trying fallback:`, e);
+      const fallbackResponse = await retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersPending({
+        instType: "SWAP",
+        instId: resolvedMarket.instId,
+        limit: "100",
+      })));
+      const orders = unwrapOkxApiRows(fallbackResponse).map((row: any) => normalizeOkxHistoryOrder(row, resolvedMarket));
+      return { ok: true, status: 200, data: orders };
+    }
+  } catch (error: any) {
+    const errMsg = error?.message || String(error || "Unknown Error");
+    console.error(`[${name.toUpperCase()} History Error] Symbol: ${symbol || 'BTC/USDT'}`, errMsg);
+    return { ok: false, status: 500, error: errMsg };
+  }
+}
+
 async function positionsImpl(name: ExchangeName, body: any): Promise<ImplResult> {
   const credentials = resolveCredentialsFor(name, body);
 
@@ -7004,60 +7062,8 @@ async function startServer() {
   });
 
   app.post("/api/okx/history", async (req, res) => {
-    const { symbol } = req.body;
-    const credentials = resolveCredentialsFor("okx", req.body);
-
-    if (!credentials) {
-      return res.status(400).json({ error: "Missing OKX credentials" });
-    }
-
-    try {
-      const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
-      await prepareExchange(exchange);
-      const targetSymbol = symbol || "BTC/USDT";
-      const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
-      await exchangeCall(() => exchange.loadMarkets());
-      const resolvedMarket = await resolveOkxSwapMarket(targetSymbol, exchange);
-      console.log(
-        `[OKX History Request] Symbol: ${targetSymbol}, Resolved: ${resolvedMarket.instId}`
-      );
-      
-      try {
-        const instId = resolvedMarket.instId;
-        const instType = "SWAP";
-
-        const [openOrdersResponse, historyOrdersResponse, archivedOrdersResponse] = await Promise.all([
-          retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersPending({ instType, instId, limit: "100" }))),
-          retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersHistory({ instType, instId, limit: "100" }))).catch(() => ({ code: "0", data: [] })),
-          retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersHistoryArchive({ instType, instId, limit: "100" }))).catch(() => ({ code: "0", data: [] })),
-        ]);
-
-        const allOrders = [
-          ...unwrapOkxApiRows(openOrdersResponse),
-          ...unwrapOkxApiRows(historyOrdersResponse),
-          ...unwrapOkxApiRows(archivedOrdersResponse),
-        ].map((row: any) => normalizeOkxHistoryOrder(row, resolvedMarket));
-
-        const uniqueOrders = Array.from(new Map(allOrders.map((item: any) => [item.id || item.clientOrderId, item])).values())
-          .filter((item: any) => item?.id || item?.clientOrderId);
-        uniqueOrders.sort((a, b) => b.timestamp - a.timestamp);
-
-        res.json(uniqueOrders);
-      } catch (e) {
-        console.warn("[OKX History] Primary fetch failed, trying fallback:", e);
-        const fallbackResponse = await retry(() => exchangeCall(() => (exchange as any).privateGetTradeOrdersPending({
-          instType: "SWAP",
-          instId: resolvedMarket.instId,
-          limit: "100",
-        })));
-        const orders = unwrapOkxApiRows(fallbackResponse).map((row: any) => normalizeOkxHistoryOrder(row, resolvedMarket));
-        res.json(orders);
-      }
-    } catch (error: any) {
-      const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX History Error] Symbol: ${symbol || 'BTC/USDT'}`, errMsg);
-      res.status(500).json({ error: errMsg });
-    }
+    const result = await historyImpl("okx", req.body);
+    sendImpl(res, result);
   });
 
   app.post("/api/okx/realized-pnl", async (req, res) => {

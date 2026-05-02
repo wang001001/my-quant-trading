@@ -7188,6 +7188,17 @@ async function startServer() {
     sendImpl(res, await orderImpl("binance", req.body, operator));
   });
 
+  app.get("/api/settings/exchange", async (_req, res) => {
+    const activeExchange = resolveActiveExchangeName();
+    const okxCreds = credentialStore.okx || {};
+    const binCreds = credentialStore.binance || {};
+    res.json({
+      activeExchange,
+      hasOkx: hasText(okxCreds.apiKey) && hasText(okxCreds.secret),
+      hasBinance: hasText(binCreds.apiKey) && hasText(binCreds.secret),
+    });
+  });
+
   app.post("/api/notify", async (req, res) => {
     const { subject, message } = req.body;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {

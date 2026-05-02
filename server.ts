@@ -461,28 +461,27 @@ function getPublicExchange(name: ExchangeName) {
 
 // --- Global Exchange Instances (for reuse) ---
 
-function getPrivateExchange(apiKey: string, secret: string, password: string, sandbox: boolean) {
-  const key = `${apiKey}_${secret}_${password}_${sandbox}`;
+function getPrivateExchange(
+  name: ExchangeName,
+  apiKey: string,
+  secret: string,
+  password?: string
+) {
+  const key = `${name}_${apiKey}_${secret}_${password ?? ""}`;
   if (!privateExchanges.has(key)) {
-    const exchange = new (ccxt as any).okx({
+    const Ctor = getExchangeCtor(name);
+    const config: any = {
       apiKey,
       secret,
-      password,
       enableRateLimit: true,
       timeout: OKX_AUTO_DATA_REQUEST_TIMEOUT_MS,
-      options: {
-        defaultType: "swap",
-        fetchMarkets: { types: ["swap", "spot"] },
-      },
-    });
-    applyExchangeProxy(exchange);
-    if (sandbox) {
-      try {
-        exchange.setSandboxMode(true);
-      } catch (e) {}
-      exchange.headers = { ...(exchange.headers || {}), 'x-simulated-trading': '1' };
-      exchange.options.defaultHeaders = { ...(exchange.options.defaultHeaders || {}), 'x-simulated-trading': '1' };
+      options: buildExchangeOptions(name),
+    };
+    if (name === "okx" && password) {
+      config.password = password;
     }
+    const exchange = new Ctor(config);
+    applyExchangeProxy(exchange);
     privateExchanges.set(key, exchange);
   }
   return privateExchanges.get(key)!;

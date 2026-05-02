@@ -5886,6 +5886,40 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function tickersImpl(name: ExchangeName): Promise<ImplResult> {
+  try {
+    // TODO: verify Binance compatibility -- okxPublicGet / OKX-SWAP inst ids are OKX-specific.
+    const coreInstIds = new Set(["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "DOGE-USDT-SWAP"]);
+    const tickers = await cachedPublicMarket("tickers:core", 10000, async () => {
+      const rows = await okxPublicGet("/api/v5/market/tickers", { instType: "SWAP" });
+      return Object.fromEntries(rows
+        .filter((raw: any) => coreInstIds.has(raw.instId))
+        .map((raw: any) => {
+          const last = Number(raw.last || 0);
+          const open = Number(raw.open24h || last);
+          return [toCcxtLikeSwapSymbol(raw.instId), {
+            symbol: toCcxtLikeSwapSymbol(raw.instId),
+            timestamp: Number(raw.ts || Date.now()),
+            datetime: new Date(Number(raw.ts || Date.now())).toISOString(),
+            high: Number(raw.high24h || last),
+            low: Number(raw.low24h || last),
+            bid: Number(raw.bidPx || 0),
+            ask: Number(raw.askPx || 0),
+            open,
+            close: last,
+            last,
+            percentage: open ? ((last - open) / open) * 100 : 0,
+            baseVolume: Number(raw.vol24h || 0),
+            info: raw
+          }];
+        }));
+    });
+    return { ok: true, status: 200, data: tickers };
+  } catch (error: any) {
+    return { ok: false, status: 500, error: error.message };
+  }
+}
+
 async function orderbookImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
@@ -6469,37 +6503,9 @@ async function startServer() {
     sendImpl(res, result);
   });
 
-  app.get("/api/okx/tickers", async (req, res) => {
-    try {
-      const coreInstIds = new Set(["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "DOGE-USDT-SWAP"]);
-      const tickers = await cachedPublicMarket("tickers:core", 10000, async () => {
-        const rows = await okxPublicGet("/api/v5/market/tickers", { instType: "SWAP" });
-        return Object.fromEntries(rows
-          .filter((raw: any) => coreInstIds.has(raw.instId))
-          .map((raw: any) => {
-            const last = Number(raw.last || 0);
-            const open = Number(raw.open24h || last);
-            return [toCcxtLikeSwapSymbol(raw.instId), {
-              symbol: toCcxtLikeSwapSymbol(raw.instId),
-              timestamp: Number(raw.ts || Date.now()),
-              datetime: new Date(Number(raw.ts || Date.now())).toISOString(),
-              high: Number(raw.high24h || last),
-              low: Number(raw.low24h || last),
-              bid: Number(raw.bidPx || 0),
-              ask: Number(raw.askPx || 0),
-              open,
-              close: last,
-              last,
-              percentage: open ? ((last - open) / open) * 100 : 0,
-              baseVolume: Number(raw.vol24h || 0),
-              info: raw
-            }];
-          }));
-      });
-      res.json(tickers);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+  app.get("/api/okx/tickers", async (_req, res) => {
+    const result = await tickersImpl("okx");
+    sendImpl(res, result);
   });
 
   app.get("/api/okx/ohlcv/:symbol", async (req, res) => {

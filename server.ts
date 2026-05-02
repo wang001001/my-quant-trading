@@ -5886,6 +5886,42 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function tickerImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
+  try {
+    const symbolParam = symbol || "BTC-USDT";
+    // TODO: verify Binance compatibility -- okxPublicGet / toOkxSwapInstId are OKX-specific.
+    const instId = toOkxSwapInstId(symbolParam);
+    const ticker = await cachedPublicMarket(`ticker:${instId}`, 3000, async () => {
+      const [raw] = await okxPublicGet("/api/v5/market/ticker", { instId });
+      const last = Number(raw?.last || 0);
+      const open = Number(raw?.open24h || last);
+      return {
+        symbol: toCcxtLikeSwapSymbol(instId),
+        timestamp: Number(raw?.ts || Date.now()),
+        datetime: new Date(Number(raw?.ts || Date.now())).toISOString(),
+        high: Number(raw?.high24h || last),
+        low: Number(raw?.low24h || last),
+        bid: Number(raw?.bidPx || 0),
+        bidVolume: Number(raw?.bidSz || 0),
+        ask: Number(raw?.askPx || 0),
+        askVolume: Number(raw?.askSz || 0),
+        open,
+        close: last,
+        last,
+        change: last - open,
+        percentage: open ? ((last - open) / open) * 100 : 0,
+        baseVolume: Number(raw?.vol24h || 0),
+        volume: Number(raw?.vol24h || 0),
+        info: raw
+      };
+    });
+    return { ok: true, status: 200, data: ticker };
+  } catch (error: any) {
+    console.error('[Ticker Error]', error.message);
+    return { ok: false, status: 500, error: error.message };
+  }
+}
+
 async function balanceImpl(name: ExchangeName, body: any): Promise<ImplResult> {
   const credentials = resolveCredentialsFor(name, body);
 
@@ -6401,38 +6437,8 @@ async function startServer() {
 
 
   app.get("/api/okx/ticker/:symbol", async (req, res) => {
-    try {
-      const symbolParam = req.params.symbol || "BTC-USDT";
-      const instId = toOkxSwapInstId(symbolParam);
-      const ticker = await cachedPublicMarket(`ticker:${instId}`, 3000, async () => {
-        const [raw] = await okxPublicGet("/api/v5/market/ticker", { instId });
-        const last = Number(raw?.last || 0);
-        const open = Number(raw?.open24h || last);
-        return {
-          symbol: toCcxtLikeSwapSymbol(instId),
-          timestamp: Number(raw?.ts || Date.now()),
-          datetime: new Date(Number(raw?.ts || Date.now())).toISOString(),
-          high: Number(raw?.high24h || last),
-          low: Number(raw?.low24h || last),
-          bid: Number(raw?.bidPx || 0),
-          bidVolume: Number(raw?.bidSz || 0),
-          ask: Number(raw?.askPx || 0),
-          askVolume: Number(raw?.askSz || 0),
-          open,
-          close: last,
-          last,
-          change: last - open,
-          percentage: open ? ((last - open) / open) * 100 : 0,
-          baseVolume: Number(raw?.vol24h || 0),
-          volume: Number(raw?.vol24h || 0),
-          info: raw
-        };
-      });
-      res.json(ticker);
-    } catch (error: any) {
-      console.error('[Ticker Error]', error.message);
-      res.status(500).json({ error: error.message });
-    }
+    const result = await tickerImpl("okx", req.params.symbol);
+    sendImpl(res, result);
   });
 
   app.get("/api/okx/orderbook/:symbol", async (req, res) => {

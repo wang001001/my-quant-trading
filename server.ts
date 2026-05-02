@@ -876,7 +876,7 @@ function failAutoTradingPreflight(message: string, code: string) {
   throw requestError(503, message, buildAutoTradingPreflightPayload(message, code));
 }
 
-async function assertAutoTradingExchangeReady(credentials?: Required<OkxCredentials>, sandbox = false) {
+async function assertAutoTradingExchangeReady(credentials?: Required<OkxCredentials>) {
   let proxyReachable: boolean | null = null;
   let proxyReason: string | null = null;
 
@@ -934,7 +934,7 @@ async function assertAutoTradingExchangeReady(credentials?: Required<OkxCredenti
   if (!credentials) return;
 
   try {
-    await fetchPrivateBalance(credentials, sandbox, true);
+    await fetchPrivateBalance(credentials, true);
     markExchangeConnectivitySuccess({
       okxPublic: true,
       okxPrivate: true,
@@ -1035,7 +1035,6 @@ type OrderLifecycleEvent = {
     | "tp_closed";
   source?: string;
   strategyId?: string;
-  sandbox?: boolean;
   operator?: string;
   details?: any;
   timestamp: number;
@@ -1062,7 +1061,6 @@ type AutoTradingScanProfile = {
 };
 
 type AutoTradingConfig = {
-  sandbox: boolean;
   scanProfilesVersion: number;
   scanProfiles: AutoTradingScanProfile[];
   strategyIds: string[];
@@ -1203,7 +1201,6 @@ type ManagedTakeProfitOrder = {
   orderId?: string;
   symbol: string;
   side: "buy" | "sell";
-  sandbox: boolean;
   source: TakeProfitManagerSource;
   strategyId?: string;
   entryPrice: number;
@@ -1556,7 +1553,6 @@ function sanitizeAutoTradingConfig(input: Partial<AutoTradingConfig> | null | un
     .filter(Boolean)));
   if (normalizedScanProfiles.length === 0 || normalizedStrategies.length === 0) return null;
   return {
-    sandbox: Boolean(input.sandbox),
     scanProfilesVersion: AUTO_TRADING_SCAN_PROFILES_VERSION,
     scanProfiles: normalizedScanProfiles,
     strategyIds: normalizedStrategies,
@@ -1738,8 +1734,8 @@ function countActivePositions(positions: any[]) {
   return positions.filter(pos => Math.abs(firstNumber(pos.contracts, pos.info?.pos, pos.info?.availPos)) > 0).length;
 }
 
-function toModeLabel(sandbox: boolean) {
-  return sandbox ? "okx-demo" : "okx-live";
+function toModeLabel() {
+  return "okx-live";
 }
 
 async function fetchPublicTickerSnapshot(symbol: string) {
@@ -1828,7 +1824,7 @@ async function fetchPublicMarketBundleWithAutoRetry(symbol: string, timeframe: s
   );
 }
 
-async function fetchPrivateBalance(credentials: Required<OkxCredentials>, _sandbox: boolean, autoRetry = false) {
+async function fetchPrivateBalance(credentials: Required<OkxCredentials>, autoRetry = false) {
   const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
   await prepareExchange(exchange);
   const operation = () => runWithExchangeProxyFallback(exchange, () => exchange.fetchBalance());
@@ -1839,7 +1835,7 @@ async function fetchPrivateBalance(credentials: Required<OkxCredentials>, _sandb
   return normalizeOkxBalance(balance);
 }
 
-async function fetchPrivatePositions(credentials: Required<OkxCredentials>, _sandbox: boolean, autoRetry = false) {
+async function fetchPrivatePositions(credentials: Required<OkxCredentials>, autoRetry = false) {
   const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
   await prepareExchange(exchange);
   const operation = () => runWithExchangeProxyFallback<any[]>(exchange, () => exchange.fetchPositions(undefined, { instType: "SWAP" }));
@@ -2060,7 +2056,7 @@ function recordTrade(row: any) {
     symbol: String(row.symbol || "UNKNOWN"),
     side: String(row.side || "UNKNOWN").toUpperCase(),
     status: String(row.status || "open").toLowerCase(),
-    mode: String(row.mode || (row.sandbox ? "okx-demo" : "okx-live")),
+    mode: String(row.mode || "okx-live"),
     source: row.source || null,
     strategy_id: row.strategyId || row.strategy_id || row.strategy || null,
     amount: normalizeNumber(row.amount ?? row.contracts),
@@ -2828,7 +2824,6 @@ function normalizeOkxPortfolioBill(row: any, mode: PortfolioReturnMode): Portfol
 
 async function fetchPortfolioAccountBills(
   credentials: Required<OkxCredentials>,
-  _sandbox: boolean,
   mode: PortfolioReturnMode,
   limit: number
 ) {
@@ -2845,7 +2840,6 @@ async function fetchPortfolioAccountBills(
 }
 
 async function fetchPortfolioExchangeReturns(mode: PortfolioReturnMode, limit: number) {
-  const sandbox = mode === "demo";
   const credentials = resolveOkxCredentials({});
   if (!credentials) {
     const error = new Error(portfolioCredentialError(mode)) as Error & { status?: number };
@@ -2854,8 +2848,8 @@ async function fetchPortfolioExchangeReturns(mode: PortfolioReturnMode, limit: n
   }
 
   const [balance, bills] = await Promise.all([
-    fetchPrivateBalance(credentials, sandbox),
-    fetchPortfolioAccountBills(credentials, sandbox, mode, limit),
+    fetchPrivateBalance(credentials),
+    fetchPortfolioAccountBills(credentials, mode, limit),
   ]);
   const capitalBase = getAccountTotalUSDT(balance);
   return {
@@ -3823,7 +3817,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
     clientOrderId,
     tpPrice,
     slPrice,
-    sandbox = false,
     strategyId,
     source,
     regime,
@@ -3836,7 +3829,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
     ruleCompliant,
     aiVerdict,
   } = orderRequest;
-  const isSandbox = String(sandbox) === "true" || sandbox === true;
   const requestId = `ordreq_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
   const amountType = orderRequest.amountType || "coin";
   const targetSymbol = symbol || "BTC/USDT";
@@ -3864,7 +3856,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
     status: "accepted",
     source,
     strategyId,
-    sandbox: isSandbox,
     operator,
     details: { type, leverage, tpPrice, slPrice, decisionContext },
   });
@@ -3877,7 +3868,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
     amount,
     amountType,
     status: "accepted",
-    mode: toModeLabel(isSandbox),
+    mode: toModeLabel(),
     source,
     strategyId,
     ...decisionContext,
@@ -3900,7 +3891,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       status: "failed",
       source,
       strategyId,
-      sandbox: isSandbox,
       operator,
       details: { reason: "missing_okx_credentials" },
     });
@@ -3913,7 +3903,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       amount,
       amountType,
       status: "failed",
-      mode: toModeLabel(isSandbox),
+      mode: toModeLabel(),
       source,
       strategyId,
       ...decisionContext,
@@ -4036,7 +4026,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       status: "prepared",
       source,
       strategyId,
-      sandbox: isSandbox,
       operator,
       details: {
         requestedAmount: amount,
@@ -4054,7 +4043,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       amount: preciseAmount,
       amountType,
       status: "prepared",
-      mode: toModeLabel(isSandbox),
+      mode: toModeLabel(),
       source,
       strategyId,
       ...decisionContext,
@@ -4132,7 +4121,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       status: "submitted",
       source,
       strategyId,
-      sandbox: isSandbox,
       operator,
       details: {
         order,
@@ -4150,7 +4138,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       amountType,
       price: order?.price,
       status: "submitted",
-      mode: toModeLabel(isSandbox),
+      mode: toModeLabel(),
       source,
       strategyId,
       ...decisionContext,
@@ -4199,8 +4187,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
           status: "verified",
           source,
           strategyId,
-          sandbox: isSandbox,
-          operator,
+              operator,
           details: {
             status: verifiedOrder.status,
             filled: verifiedOrder.filled,
@@ -4220,7 +4207,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
           price: verifiedOrder.average || verifiedOrder.price || order.price,
           fee: verifiedOrder.fee,
           status: verifiedOrder.status || "verified",
-          mode: toModeLabel(isSandbox),
+          mode: toModeLabel(),
           source,
           strategyId,
           ...decisionContext,
@@ -4250,8 +4237,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
           orderId: order.id,
           symbol: displaySymbol,
           side,
-          sandbox: isSandbox,
-          source,
+              source,
           strategyId,
           tpPrice,
           slPrice,
@@ -4268,8 +4254,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
           orderId: order.id,
           symbol: displaySymbol,
           side,
-          sandbox: isSandbox,
-          source,
+              source,
           strategyId,
           tpPrice,
           slPrice,
@@ -4308,7 +4293,6 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       status: "failed",
       source,
       strategyId,
-      sandbox: isSandbox,
       operator,
       details: failureDetails,
     });
@@ -4321,7 +4305,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
       amount: failureDetails.contractSz ?? amount,
       amountType,
       status: "failed",
-      mode: toModeLabel(isSandbox),
+      mode: toModeLabel(),
       source,
       strategyId,
       ...decisionContext,
@@ -4339,7 +4323,7 @@ async function submitOkxOrder(orderRequest: any, operator = "unknown") {
   }
 }
 
-function resolveEngineCredentials(_sandbox: boolean) {
+function resolveEngineCredentials() {
   return resolveOkxCredentials({});
 }
 
@@ -4584,7 +4568,6 @@ class TakeProfitManager {
     orderId?: string;
     symbol: string;
     side: string;
-    sandbox: boolean;
     source?: string;
     strategyId?: string;
     tpPrice?: number | null;
@@ -4621,7 +4604,6 @@ class TakeProfitManager {
         status: "tp_skipped",
         source,
         strategyId: input.strategyId,
-        sandbox: input.sandbox,
         operator: "tp-manager",
         details: { reason: "Auto-trading config unavailable" },
       });
@@ -4649,7 +4631,6 @@ class TakeProfitManager {
         status: "tp_skipped",
         source,
         strategyId: input.strategyId,
-        sandbox: input.sandbox,
         operator: "tp-manager",
         details: { reason: `${normalizedSymbol} is not in active scan profiles` },
       });
@@ -4666,7 +4647,6 @@ class TakeProfitManager {
       orderId: input.orderId,
       symbol: normalizedSymbol,
       side,
-      sandbox: input.sandbox,
       source,
       strategyId: input.strategyId,
       entryPrice: firstNumber(input.entryPrice, input.verifiedOrder?.average, input.verifiedOrder?.price, input.order?.average, input.order?.price),
@@ -4705,7 +4685,6 @@ class TakeProfitManager {
       status: "tp_managed",
       source: managedOrder.source,
       strategyId: managedOrder.strategyId,
-      sandbox: managedOrder.sandbox,
       operator: "tp-manager",
       details: {
         initialTpPrice: managedOrder.initialTpPrice,
@@ -4744,7 +4723,6 @@ class TakeProfitManager {
       status,
       source: managedOrder.source,
       strategyId: managedOrder.strategyId,
-      sandbox: managedOrder.sandbox,
       operator: "tp-manager",
       details: {
         currentTpPrice: managedOrder.currentTpPrice,
@@ -4819,13 +4797,13 @@ class TakeProfitManager {
       const positionCache = new Map<string, Promise<any[]>>();
 
       for (const managedOrder of [...this.managed.values()]) {
-        const credentials = resolveEngineCredentials(managedOrder.sandbox);
+        const credentials = resolveEngineCredentials();
         if (!credentials) {
           managedOrder.tpManagerStatus = "skipped";
           this.note(
             managedOrder,
             "tp_skipped",
-            `TP manager skipped ${managedOrder.symbol}: missing ${managedOrder.sandbox ? "demo" : "live"} credentials`
+            `TP manager skipped ${managedOrder.symbol}: missing OKX credentials`
           );
           this.managed.delete(managedOrder.tradeId);
           continue;
@@ -4848,7 +4826,7 @@ class TakeProfitManager {
         const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
         await prepareExchange(exchange);
         const exchangeCall = <T,>(fn: () => Promise<T>) => runWithExchangeProxyFallback(exchange, fn);
-        const positionKey = String(managedOrder.sandbox);
+        const positionKey = "okx-live";
         if (!positionCache.has(positionKey)) {
           positionCache.set(positionKey, exchangeCall(() => exchange.fetchPositions(undefined, { instType: "SWAP" }))
             .then((positions: any[]) => positions.map(normalizeOkxPosition)));
@@ -4985,8 +4963,7 @@ class TakeProfitManager {
             status: "tp_amended",
             source: managedOrder.source,
             strategyId: managedOrder.strategyId,
-            sandbox: managedOrder.sandbox,
-            operator: "tp-manager",
+                  operator: "tp-manager",
             details: {
               currentTpPrice: managedOrder.currentTpPrice,
               initialTpPrice: managedOrder.initialTpPrice,
@@ -5021,10 +4998,10 @@ function nextAutoTradingDelay(scanIntervalMultiplier = 1, floorMs = AUTO_TRADING
 async function runAutoTradingCycle(config: AutoTradingConfig, trigger: "scheduled" | "manual") {
   const startedAt = Date.now();
   const cycleId = `cycle_${startedAt}_${crypto.randomBytes(4).toString("hex")}`;
-  const credentials = resolveEngineCredentials(config.sandbox);
+  const credentials = resolveEngineCredentials();
   if (!credentials) {
-    throw requestError(400, `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`, {
-      error: `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`
+    throw requestError(400, `Missing OKX credentials`, {
+      error: `Missing OKX credentials`
     });
   }
 
@@ -5161,8 +5138,8 @@ async function runAutoTradingCycle(config: AutoTradingConfig, trigger: "schedule
   }
 
   const [balance, positions] = await Promise.all([
-    fetchPrivateBalance(credentials, config.sandbox, true),
-    fetchPrivatePositions(credentials, config.sandbox, true),
+    fetchPrivateBalance(credentials, true),
+    fetchPrivatePositions(credentials, true),
   ]);
   const balanceTotal = getAccountTotalUSDT(balance);
   const activePositionCount = countActivePositions(positions);
@@ -5310,7 +5287,7 @@ async function runAutoTradingCycle(config: AutoTradingConfig, trigger: "schedule
           regimeScore: analysis.regimeScore,
           macroGate: analysis.macroGate || macroGate,
           macroScore: analysis.macroGate?.score ?? macroRiskScore,
-          mode: toModeLabel(config.sandbox),
+          mode: toModeLabel(),
           source: trigger === "manual" ? "manual-auto-scan" : "engine-auto-scan",
           raw: {
             ...analysis,
@@ -5596,7 +5573,6 @@ async function runAutoTradingCycle(config: AutoTradingConfig, trigger: "schedule
         leverage: config.riskConfigSnapshot.leverage,
         tpPrice: candidate.analysis.tp_price,
         slPrice: candidate.analysis.sl_price,
-        sandbox: config.sandbox,
         strategyId: candidate.strategyId,
         source: "auto",
         regime: candidate.analysis.regime,
@@ -5699,7 +5675,7 @@ class AutoTradingEngine {
     const config = sanitizeAutoTradingConfig(input);
     if (!config) throw requestError(400, "Invalid auto-trading config", { error: "Invalid auto-trading config" });
     updateAutoTradingStore({ config });
-    pushAutoTradingLog(`鑷姩浜ゆ槗閰嶇疆宸叉洿鏂?(${config.sandbox ? "DEMO" : "LIVE"}, shadow=${config.shadowMode ? "on" : "off"})`);
+    pushAutoTradingLog(`鑷姩浜ゆ槗閰嶇疆宸叉洿鏂?(shadow=${config.shadowMode ? "on" : "off"})`);
     return {
       config: serializeAutoTradingConfig(config),
       status: this.status(),
@@ -5711,13 +5687,13 @@ class AutoTradingEngine {
       hasMeaningfulAutoTradingConfigInput(input) ? input : appStore.autoTrading.config
     );
     if (!config) throw requestError(400, "Invalid auto-trading config", { error: "Invalid auto-trading config" });
-    const credentials = resolveEngineCredentials(config.sandbox);
+    const credentials = resolveEngineCredentials();
     if (!credentials) {
-      throw requestError(400, `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`, {
-        error: `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`
+      throw requestError(400, `Missing OKX credentials`, {
+        error: `Missing OKX credentials`
       });
     }
-    await assertAutoTradingExchangeReady(credentials, config.sandbox);
+    await assertAutoTradingExchangeReady(credentials);
 
     this.stopRequested = false;
     if (this.timer) {
@@ -5732,7 +5708,7 @@ class AutoTradingEngine {
       engineStartedAt: Date.now(),
       nextRunAt: Date.now(),
     });
-    pushAutoTradingLog(`鑷姩浜ゆ槗寮曟搸宸插惎鍔?(${config.sandbox ? "DEMO" : "LIVE"})`);
+    pushAutoTradingLog(`鑷姩浜ゆ槗寮曟搸宸插惎鍔?`);
     this.schedule(0);
     return this.status();
   }
@@ -5767,13 +5743,13 @@ class AutoTradingEngine {
     const config = sanitizeAutoTradingConfig(providedConfig || appStore.autoTrading.config);
     if (!config) throw requestError(400, "Auto-trading config is not initialized", { error: "Auto-trading config is not initialized" });
     if (this.inFlight) throw requestError(409, "Auto-trading cycle already in progress", { error: "Auto-trading cycle already in progress" });
-    const credentials = resolveEngineCredentials(config.sandbox);
+    const credentials = resolveEngineCredentials();
     if (!credentials) {
-      throw requestError(400, `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`, {
-        error: `Missing OKX credentials for ${config.sandbox ? "demo" : "live"} mode`
+      throw requestError(400, `Missing OKX credentials`, {
+        error: `Missing OKX credentials`
       });
     }
-    await assertAutoTradingExchangeReady(credentials, config.sandbox);
+    await assertAutoTradingExchangeReady(credentials);
 
     if (providedConfig) {
       updateAutoTradingStore({ config });

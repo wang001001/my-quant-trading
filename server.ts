@@ -3082,7 +3082,6 @@ type AiProxyCredentials = {
 
 type CredentialStore = {
   okx?: OkxCredentials;
-  okxDemo?: OkxCredentials;
   ai?: AiProxyCredentials;
   activeExchange?: ExchangeName;
   binance?: {
@@ -3230,20 +3229,17 @@ function sanitizedCredentialStatus() {
   const envOkxLive = hasOkxCredentials(getOkxEnvCredentials());
   const envZhipu = !!hasText(process.env.ZHIPU_API_KEY);
   const storedOkxLive = hasOkxCredentials(credentialStore.okx);
-  const storedOkxDemo = hasOkxCredentials(credentialStore.okxDemo);
   const storedAiProxy = hasAiCredentials(credentialStore.ai);
 
   return {
     okx: envOkxLive || storedOkxLive,
     okxLive: envOkxLive || storedOkxLive,
-    okxDemo: storedOkxDemo,
     ai: envZhipu || storedAiProxy,
     aiProxy: envZhipu || storedAiProxy,
     zhipu: envZhipu || storedAiProxy,
     smtp: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
     sources: {
       okxLive: envOkxLive ? "env" : storedOkxLive ? "vault" : null,
-      okxDemo: storedOkxDemo ? "vault" : null,
       aiProxy: envZhipu ? "env" : storedAiProxy ? "vault" : null,
       smtp: process.env.SMTP_USER && process.env.SMTP_PASS ? "env" : null,
     },
@@ -5981,9 +5977,6 @@ async function startServer() {
         okxKey,
         okxSecret,
         okxPass,
-        okxDemoKey,
-        okxDemoSecret,
-        okxDemoPass,
         aiUrl,
         aiKey,
         aiModel,
@@ -5995,11 +5988,6 @@ async function startServer() {
         apiKey: okxKey,
         secret: okxSecret,
         password: okxPass,
-      });
-      credentialStore.okxDemo = mergeText(credentialStore.okxDemo, {
-        apiKey: okxDemoKey,
-        secret: okxDemoSecret,
-        password: okxDemoPass,
       });
       credentialStore.ai = mergeText(credentialStore.ai, {
         proxyUrl: aiUrl,

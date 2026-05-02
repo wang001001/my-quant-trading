@@ -5879,11 +5879,32 @@ type ImplResult<T = any> = {
   status: number;
   data?: T;
   error?: string;
+  // Optional raw error body. When provided on a failure result, sendImpl uses it
+  // verbatim instead of wrapping `error` into `{ error }`.
+  errorPayload?: any;
 };
 
 function sendImpl(res: any, result: ImplResult) {
   if (result.ok) return res.status(result.status).json(result.data);
+  // Match original handler semantics: when an `errorPayload` is truthy it is used
+  // verbatim, otherwise we fall back to `{ error }`.
+  if (result.errorPayload) return res.status(result.status).json(result.errorPayload);
   return res.status(result.status).json({ error: result.error });
+}
+
+async function orderImpl(name: ExchangeName, body: any, operator: string): Promise<ImplResult> {
+  try {
+    // TODO: verify Binance compatibility -- submitOkxOrder is OKX-specific; Phase 5 will introduce a Binance equivalent.
+    const result = await submitOkxOrder(body || {}, operator);
+    return { ok: true, status: 200, data: result };
+  } catch (error: any) {
+    return {
+      ok: false,
+      status: error?.statusCode || 500,
+      error: error?.message || "Execution failed after retries. Please check exchange status.",
+      errorPayload: error?.payload,
+    };
+  }
 }
 
 async function realizedPnlImpl(name: ExchangeName, body: any): Promise<ImplResult> {
@@ -7147,14 +7168,9 @@ async function startServer() {
   });
 
   app.post("/api/okx/order", async (req, res) => {
-    try {
-      const result = await submitOkxOrder(req.body || {}, (req as any).operator?.username || "unknown");
-      return res.json(result);
-    } catch (error: any) {
-      return res.status(error?.statusCode || 500).json(error?.payload || {
-        error: error?.message || "Execution failed after retries. Please check exchange status."
-      });
-    }
+    const operator = (req as any).operator?.username || "unknown";
+    const result = await orderImpl("okx", req.body, operator);
+    sendImpl(res, result);
   });
 
   app.post("/api/notify", async (req, res) => {

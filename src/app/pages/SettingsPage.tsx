@@ -29,6 +29,9 @@ export function SettingsPage({
   handleSaveSettings: () => Promise<void>;
 }) {
   const { activeExchange, hasOkx, hasBinance } = useExchangeState();
+  const [binanceApiKey, setBinanceApiKey] = React.useState("");
+  const [binanceSecret, setBinanceSecret] = React.useState("");
+  const [binanceSaving, setBinanceSaving] = React.useState(false);
 
   const handleExchangeChange = React.useCallback(
     async (next: "okx" | "binance") => {
@@ -36,6 +39,25 @@ export function SettingsPage({
       setExchangeState({ activeExchange: next });
     },
     []
+  );
+
+  const handleSaveBinance = React.useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      setBinanceSaving(true);
+      try {
+        await postJson("/api/settings/binance-credentials", {
+          apiKey: binanceApiKey,
+          secret: binanceSecret,
+        });
+        setExchangeState({ hasBinance: true });
+        setBinanceApiKey("");
+        setBinanceSecret("");
+      } finally {
+        setBinanceSaving(false);
+      }
+    },
+    [binanceApiKey, binanceSecret]
   );
 
   return (
@@ -52,6 +74,39 @@ export function SettingsPage({
           <option value="okx">OKX {hasOkx ? "✓" : "✗ 未配置"}</option>
           <option value="binance">Binance {hasBinance ? "✓" : "✗ 未配置"}</option>
         </select>
+      </section>
+
+      <section className={cardClassName()}>
+        <SectionTitle
+          title="Binance 凭证"
+          subtitle="USDT-M 合约的 API Key 和 Secret。无需 passphrase。"
+        />
+        {hasBinance ? (
+          <div className="mb-3 text-sm text-emerald-400">✓ 已配置</div>
+        ) : null}
+        <form onSubmit={(event) => void handleSaveBinance(event)} className="space-y-3">
+          <input
+            type="password"
+            placeholder="API Key"
+            value={binanceApiKey}
+            onChange={(event) => setBinanceApiKey(event.target.value)}
+            className="w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+          />
+          <input
+            type="password"
+            placeholder="Secret Key"
+            value={binanceSecret}
+            onChange={(event) => setBinanceSecret(event.target.value)}
+            className="w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+          />
+          <button
+            type="submit"
+            disabled={binanceSaving || !binanceApiKey || !binanceSecret}
+            className="rounded-2xl bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-indigo-900"
+          >
+            {binanceSaving ? "保存中…" : "保存"}
+          </button>
+        </form>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">

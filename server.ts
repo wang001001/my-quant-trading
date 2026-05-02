@@ -5886,6 +5886,26 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function ohlcvImpl(name: ExchangeName, symbol: string, query: any): Promise<ImplResult> {
+  try {
+    const symbolParam = symbol || "BTC-USDT";
+    // TODO: verify Binance compatibility -- okxPublicGet / OKX bar codes are OKX-specific.
+    const instId = toOkxSwapInstId(symbolParam);
+    const timeframe = (query?.t as string) || "1h";
+    const limit = Math.min(300, Math.max(24, Number(query?.limit || 120)));
+    const ohlcv = await cachedPublicMarket(`ohlcv:${instId}:${timeframe}:${limit}`, 60000, async () => {
+      const rows = await okxPublicGet("/api/v5/market/candles", { instId, bar: okxBar(timeframe), limit });
+      return rows
+        .map((row: string[]) => [Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5])])
+        .sort((a: number[], b: number[]) => a[0] - b[0]);
+    });
+    return { ok: true, status: 200, data: ohlcv };
+  } catch (error: any) {
+    console.error('[OHLCV Error]', error.message);
+    return { ok: false, status: 500, error: error.message };
+  }
+}
+
 async function tickersImpl(name: ExchangeName): Promise<ImplResult> {
   try {
     // TODO: verify Binance compatibility -- okxPublicGet / OKX-SWAP inst ids are OKX-specific.
@@ -6509,22 +6529,8 @@ async function startServer() {
   });
 
   app.get("/api/okx/ohlcv/:symbol", async (req, res) => {
-    try {
-      const symbolParam = req.params.symbol || "BTC-USDT";
-      const instId = toOkxSwapInstId(symbolParam);
-      const timeframe = (req.query.t as string) || "1h";
-      const limit = Math.min(300, Math.max(24, Number(req.query.limit || 120)));
-      const ohlcv = await cachedPublicMarket(`ohlcv:${instId}:${timeframe}:${limit}`, 60000, async () => {
-        const rows = await okxPublicGet("/api/v5/market/candles", { instId, bar: okxBar(timeframe), limit });
-        return rows
-          .map((row: string[]) => [Number(row[0]), Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5])])
-          .sort((a: number[], b: number[]) => a[0] - b[0]);
-      });
-      res.json(ohlcv);
-    } catch (error: any) {
-      console.error('[OHLCV Error]', error.message);
-      res.status(500).json({ error: error.message });
-    }
+    const result = await ohlcvImpl("okx", req.params.symbol, req.query);
+    sendImpl(res, result);
   });
 
   app.get("/api/okx/funding/:symbol", async (req, res) => {

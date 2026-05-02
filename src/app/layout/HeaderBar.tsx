@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { RefreshCw } from "lucide-react";
 
 import type { AutoTradingConfig, AutoTradingStatus, SessionUser } from "../api";
+import { useExchangeState } from "../state/exchangeStore";
 import { AUTO_TRADING_ALLOWED_SYMBOLS, type Ticker } from "../../lib/tradingRuntime";
 import { formatPct, formatPrice } from "../utils";
 
@@ -25,6 +26,7 @@ export function HeaderBar({
   onRefresh: () => void;
   onLogout: () => void;
 }) {
+  const { activeExchange } = useExchangeState();
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/90 px-6 py-4 backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -66,7 +68,9 @@ export function HeaderBar({
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-4 py-2">
             <div className="text-xs text-zinc-500">账户模式</div>
-            <div className="font-medium text-zinc-100">OKX 实盘</div>
+            <div className="font-medium text-zinc-100">
+              {activeExchange === "binance" ? "Binance 实盘" : "OKX 实盘"}
+            </div>
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 px-4 py-2">
             <div className="text-xs text-zinc-500">当前用户</div>

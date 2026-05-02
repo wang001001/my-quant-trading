@@ -1,7 +1,8 @@
 import React from "react";
 
-import type { AutoTradingConfig, ConfigStatus } from "../api";
+import { postJson, type AutoTradingConfig, type ConfigStatus } from "../api";
 import { SectionTitle } from "../components/common";
+import { setExchangeState, useExchangeState } from "../state/exchangeStore";
 import {
   cardClassName,
   DEFAULT_STRATEGIES,
@@ -27,9 +28,32 @@ export function SettingsPage({
   settingsSaving: boolean;
   handleSaveSettings: () => Promise<void>;
 }) {
+  const { activeExchange, hasOkx, hasBinance } = useExchangeState();
+
+  const handleExchangeChange = React.useCallback(
+    async (next: "okx" | "binance") => {
+      await postJson("/api/settings/exchange", { activeExchange: next });
+      setExchangeState({ activeExchange: next });
+    },
+    []
+  );
+
   return (
     <div className="space-y-6">
       <SectionTitle title="系统设置" subtitle="凭据保存和自动交易运行参数。" />
+
+      <section className={cardClassName()}>
+        <SectionTitle title="当前交易所" subtitle="切换后，Dashboard / Market / Portfolio 页面将从对应交易所拉取数据。" />
+        <select
+          value={activeExchange}
+          onChange={(event) => void handleExchangeChange(event.target.value as "okx" | "binance")}
+          className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+        >
+          <option value="okx">OKX {hasOkx ? "✓" : "✗ 未配置"}</option>
+          <option value="binance">Binance {hasBinance ? "✓" : "✗ 未配置"}</option>
+        </select>
+      </section>
+
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <section className={cardClassName()}>
           <SectionTitle title="凭据配置" subtitle="不回填现有密钥；只在你输入新值时覆盖保存。" />

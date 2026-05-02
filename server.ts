@@ -3270,6 +3270,18 @@ function resolveOkxCredentials(body: any, sandbox: boolean): Required<OkxCredent
   return credentials as Required<OkxCredentials>;
 }
 
+function resolveCredentialsFor(name: ExchangeName, body: any = {}) {
+  if (name === "binance") {
+    const stored = credentialStore.binance || {};
+    const apiKey = body.apiKey || stored.apiKey || envText("BINANCE_API_KEY");
+    const secret = body.secret || stored.secret || envText("BINANCE_SECRET_KEY");
+    if (!hasText(apiKey) || !hasText(secret)) return null;
+    return { apiKey, secret, password: undefined as string | undefined };
+  }
+  // OKX path — delegate to existing helper, but always live (no sandbox).
+  return resolveOkxCredentials(body, false);
+}
+
 function mergeText<T extends Record<string, any>>(current: T | undefined, next: Partial<T>) {
   const merged: T = { ...(current || {}) } as T;
   for (const [key, value] of Object.entries(next)) {

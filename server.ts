@@ -5867,6 +5867,56 @@ class AutoTradingEngine {
 const autoTradingEngine = new AutoTradingEngine();
 const takeProfitManager = new TakeProfitManager();
 
+// ---------------------------------------------------------------------------
+// Per-exchange route impl helpers (Phase 4)
+// Each *Impl(name, ...) is the pure core of the corresponding /api/<name>/*
+// route handler. The OKX route handler is a thin wrapper; Phase 5 adds
+// matching /api/binance/* routes that call the same impl with name="binance".
+// ---------------------------------------------------------------------------
+
+type ImplResult<T = any> = {
+  ok: boolean;
+  status: number;
+  data?: T;
+  error?: string;
+};
+
+function sendImpl(res: any, result: ImplResult) {
+  if (result.ok) return res.status(result.status).json(result.data);
+  return res.status(result.status).json({ error: result.error });
+}
+
+async function balanceImpl(name: ExchangeName, body: any): Promise<ImplResult> {
+  const credentials = resolveCredentialsFor(name, body);
+
+  console.log(`[${name.toUpperCase()} Balance Request]`);
+  console.log(`- API Key: ${credentials?.apiKey ? credentials.apiKey.substring(0, 5) + '...' : 'MISSING'}`);
+
+  if (!credentials) {
+    return { ok: false, status: 400, error: `Missing ${name.toUpperCase()} credentials` };
+  }
+
+  try {
+    const exchange = getPrivateExchange(name, credentials.apiKey, credentials.secret, credentials.password);
+    await prepareExchange(exchange);
+    const balance = normalizeOkxBalance(await runWithExchangeProxyFallback(exchange, () => exchange.fetchBalance()));
+
+    // Ensure we have a consistent structure for the frontend
+    // OKX V5 balance is already well-mapped by CCXT, but we can log details
+    if (balance.info && balance.info.data && balance.info.data[0]) {
+      const details = balance.info.data[0].details || [];
+      console.log(`[${name.toUpperCase()} Balance] Details count: ${details.length}`);
+    }
+
+    return { ok: true, status: 200, data: balance };
+  } catch (error: any) {
+    const errMsg = error?.message || String(error || "Unknown Error");
+    console.error(`[${name.toUpperCase()} Balance Error]`, errMsg);
+    if (error.stack) console.error(`[${name.toUpperCase()} Balance Error Stack]`, error.stack);
+    return { ok: false, status: 500, error: `${name} ${errMsg}` };
+  }
+}
+
 async function startServer() {
   console.log("[Server] Starting initialization...");
   await loadAuditStore();
@@ -6345,34 +6395,8 @@ async function startServer() {
 
   // API Routes
   app.post("/api/okx/balance", async (req, res) => {
-    const credentials = resolveCredentialsFor("okx", req.body);
-
-    console.log(`[OKX Balance Request]`);
-    console.log(`- API Key: ${credentials?.apiKey ? credentials.apiKey.substring(0, 5) + '...' : 'MISSING'}`);
-
-    if (!credentials) {
-      return res.status(400).json({ error: "Missing OKX credentials" });
-    }
-
-    try {
-       const exchange = getPrivateExchange("okx", credentials.apiKey, credentials.secret, credentials.password);
-       await prepareExchange(exchange);
-       const balance = normalizeOkxBalance(await runWithExchangeProxyFallback(exchange, () => exchange.fetchBalance()));
-       
-       // Ensure we have a consistent structure for the frontend
-       // OKX V5 balance is already well-mapped by CCXT, but we can log details
-       if (balance.info && balance.info.data && balance.info.data[0]) {
-         const details = balance.info.data[0].details || [];
-         console.log(`[OKX Balance] Details count: ${details.length}`);
-       }
-       
-       res.json(balance);
-     } catch (error: any) {
-      const errMsg = error?.message || String(error || "Unknown Error");
-      console.error(`[OKX Balance Error]`, errMsg);
-      if (error.stack) console.error('[OKX Balance Error Stack]', error.stack);
-      res.status(500).json({ error: `okx ${errMsg}` });
-    }
+    const result = await balanceImpl("okx", req.body);
+    sendImpl(res, result);
   });
 
 

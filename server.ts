@@ -3197,7 +3197,21 @@ async function decryptCredentials(payload: any): Promise<CredentialStore> {
     decipher.update(Buffer.from(payload.data, "base64")),
     decipher.final(),
   ]);
-  return JSON.parse(decrypted.toString("utf-8"));
+  const data = JSON.parse(decrypted.toString("utf-8")) as CredentialStore;
+  // Schema migration: drop sandbox/demo mode (removed 2026-05).
+  if ((data as any).okxDemo) {
+    console.warn("[Credentials] migration: dropping legacy okxDemo field");
+    delete (data as any).okxDemo;
+  }
+  // Default activeExchange for older stores.
+  if (!data.activeExchange || !isExchangeName(data.activeExchange)) {
+    data.activeExchange = "okx";
+  }
+  // Initialize binance slot if absent.
+  if (!data.binance) {
+    data.binance = {};
+  }
+  return data;
 }
 
 async function loadCredentialStore() {

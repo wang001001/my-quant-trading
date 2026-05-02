@@ -55,7 +55,6 @@ export type AutoTradingScanProfile = {
 };
 
 export type AutoTradingConfig = {
-  sandbox: boolean;
   scanProfilesVersion?: number;
   scanProfiles: AutoTradingScanProfile[];
   strategyIds: string[];

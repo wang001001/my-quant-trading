@@ -57,9 +57,6 @@ export function ConsoleApp() {
     okxKey: "",
     okxSecret: "",
     okxPass: "",
-    okxDemoKey: "",
-    okxDemoSecret: "",
-    okxDemoPass: "",
     aiUrl: "",
     aiKey: "",
     aiModel: "",
@@ -293,7 +290,6 @@ export function ConsoleApp() {
 
   const handleSaveSettings = React.useCallback(async () => {
     const merged = mergeConfig(autoTrading.autoConfig, {
-      sandbox: autoTrading.autoConfig?.sandbox ?? false,
       shadowMode: autoTrading.autoConfig?.shadowMode ?? DEFAULT_AUTO_TRADING_RISK_CONFIG.shadowMode,
     });
     setSettingsSaving(true);

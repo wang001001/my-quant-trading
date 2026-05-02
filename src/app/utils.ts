@@ -27,9 +27,6 @@ export type CredentialsForm = {
   okxKey: string;
   okxSecret: string;
   okxPass: string;
-  okxDemoKey: string;
-  okxDemoSecret: string;
-  okxDemoPass: string;
   aiUrl: string;
   aiKey: string;
   aiModel: string;
@@ -233,7 +230,6 @@ export function mergeConfig(
   }
 ): AutoTradingConfig {
   const base = config || {
-    sandbox: false,
     scanProfilesVersion: 2,
     scanProfiles: DEFAULT_SCAN_PROFILES,
     strategyIds: DEFAULT_STRATEGIES,

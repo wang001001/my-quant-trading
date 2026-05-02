@@ -63,9 +63,6 @@ export function SettingsPage({
                 ["okxKey", "OKX 实盘 API Key"],
                 ["okxSecret", "OKX 实盘 Secret"],
                 ["okxPass", "OKX 实盘 Passphrase"],
-                ["okxDemoKey", "OKX 模拟盘 API Key"],
-                ["okxDemoSecret", "OKX 模拟盘 Secret"],
-                ["okxDemoPass", "OKX 模拟盘 Passphrase"],
                 ["aiUrl", "AI Proxy URL"],
                 ["aiKey", "AI Proxy Key"],
                 ["aiModel", "AI 决策模型"],
@@ -100,17 +97,6 @@ export function SettingsPage({
         <section className={cardClassName()}>
           <SectionTitle title="自动交易参数" />
           <div className="space-y-4">
-            <label className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
-              <span className="text-sm text-zinc-300">使用模拟盘</span>
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-indigo-500"
-                checked={Boolean(autoConfig?.sandbox)}
-                onChange={(event) =>
-                  setAutoConfig((current) => mergeConfig(current, { sandbox: event.target.checked }))
-                }
-              />
-            </label>
             <label className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
               <span className="text-sm text-zinc-300">影子模式</span>
               <input
@@ -193,7 +179,6 @@ export function SettingsPage({
               <div className="mb-2 font-medium text-zinc-200">凭据状态</div>
               <div className="grid gap-2">
                 <div>OKX 实盘：{configStatus?.okxLive ? "已配置" : "未配置"}</div>
-                <div>OKX 模拟盘：{configStatus?.okxDemo ? "已配置" : "未配置"}</div>
                 <div>AI Proxy：{configStatus?.ai || configStatus?.zhipu ? "已配置" : "未配置"}</div>
               </div>
             </div>

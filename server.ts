@@ -5886,6 +5886,31 @@ function sendImpl(res: any, result: ImplResult) {
   return res.status(result.status).json({ error: result.error });
 }
 
+async function fundingImpl(name: ExchangeName, symbol: string): Promise<ImplResult> {
+  try {
+    const symbolParam = symbol || "BTC-USDT";
+    // TODO: verify Binance compatibility -- okxPublicGet / OKX funding-rate path is OKX-specific.
+    const instId = toOkxSwapInstId(symbolParam);
+    const funding = await cachedPublicMarket(`funding:${instId}`, 60000, async () => {
+      const [raw] = await okxPublicGet("/api/v5/public/funding-rate", { instId });
+      return {
+        symbol: toCcxtLikeSwapSymbol(instId),
+        fundingRate: Number(raw?.fundingRate || 0),
+        nextFundingRate: Number(raw?.nextFundingRate || 0),
+        fundingTimestamp: Number(raw?.fundingTime || 0),
+        nextFundingTime: Number(raw?.nextFundingTime || 0),
+        timestamp: Date.now(),
+        info: raw
+      };
+    });
+    return { ok: true, status: 200, data: funding };
+  } catch (error: any) {
+    const finalErrMsg = error?.message || "Funding rate fetch failed";
+    console.error('[Funding Error]', finalErrMsg);
+    return { ok: false, status: 500, error: finalErrMsg };
+  }
+}
+
 async function ohlcvImpl(name: ExchangeName, symbol: string, query: any): Promise<ImplResult> {
   try {
     const symbolParam = symbol || "BTC-USDT";
@@ -6534,27 +6559,8 @@ async function startServer() {
   });
 
   app.get("/api/okx/funding/:symbol", async (req, res) => {
-    try {
-      const symbolParam = req.params.symbol || "BTC-USDT";
-      const instId = toOkxSwapInstId(symbolParam);
-      const funding = await cachedPublicMarket(`funding:${instId}`, 60000, async () => {
-        const [raw] = await okxPublicGet("/api/v5/public/funding-rate", { instId });
-        return {
-          symbol: toCcxtLikeSwapSymbol(instId),
-          fundingRate: Number(raw?.fundingRate || 0),
-          nextFundingRate: Number(raw?.nextFundingRate || 0),
-          fundingTimestamp: Number(raw?.fundingTime || 0),
-          nextFundingTime: Number(raw?.nextFundingTime || 0),
-          timestamp: Date.now(),
-          info: raw
-        };
-      });
-      res.json(funding);
-    } catch (error: any) {
-      const finalErrMsg = error?.message || "Funding rate fetch failed";
-      console.error('[Funding Error]', finalErrMsg);
-      res.status(500).json({ error: finalErrMsg });
-    }
+    const result = await fundingImpl("okx", req.params.symbol);
+    sendImpl(res, result);
   });
 
   app.post("/api/backtest", async (req, res) => {

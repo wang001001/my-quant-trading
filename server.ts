@@ -283,7 +283,9 @@ function disableExchangeProxy(error?: any) {
   if (!EXCHANGE_PROXY_URL || exchangeProxyBypassed) return;
   exchangeProxyBypassed = true;
   exchangeProxyAvailability = Promise.resolve(false);
-  clearExchangeProxy(publicExchange);
+  for (const exchange of publicExchanges.values()) {
+    clearExchangeProxy(exchange);
+  }
   for (const exchange of privateExchanges.values()) {
     clearExchangeProxy(exchange);
   }
@@ -295,7 +297,9 @@ function restoreExchangeProxy(reason?: string) {
   if (!EXCHANGE_PROXY_URL || !exchangeProxyBypassed) return;
   exchangeProxyBypassed = false;
   exchangeProxyAvailability = null;
-  applyExchangeProxy(publicExchange);
+  for (const exchange of publicExchanges.values()) {
+    applyExchangeProxy(exchange);
+  }
   for (const exchange of privateExchanges.values()) {
     applyExchangeProxy(exchange);
   }
@@ -3257,15 +3261,6 @@ function mergeText<T extends Record<string, any>>(current: T | undefined, next: 
   return merged;
 }
 
-const publicExchange = new (ccxt as any).okx({
-  enableRateLimit: true,
-  timeout: OKX_AUTO_DATA_REQUEST_TIMEOUT_MS,
-  options: {
-    defaultType: "swap",
-    fetchMarkets: { types: ["swap", "spot"] },
-  },
-});
-applyExchangeProxy(publicExchange);
 const privateExchanges = new Map<string, any>();
 
 // --- Macro Data Cache ---
@@ -3746,7 +3741,8 @@ function runBacktestOnOhlcv(ohlcv: any[], options: BacktestRunOptions) {
 }
 
 async function fetchBacktestOhlcv(symbol: string, timeframe: string, limit: number) {
-  await prepareExchange(publicExchange);
+  // TODO Task 2.4: read activeExchange dynamically
+  await prepareExchange(getPublicExchange("okx"));
   const ccxtSymbol = toCcxtSymbol(symbol);
   const targetLimit = Math.min(10000, Math.max(60, Math.floor(Number(limit) || 60)));
   const pageLimit = Math.min(300, targetLimit);
@@ -3758,9 +3754,10 @@ async function fetchBacktestOhlcv(symbol: string, timeframe: string, limit: numb
     const maxPages = Math.ceil(targetLimit / pageLimit) + 8;
 
     for (let page = 0; page < maxPages; page += 1) {
+      // TODO Task 2.4: read activeExchange dynamically
       const batch = await runWithExchangeProxyFallback(
-        publicExchange,
-        () => publicExchange.fetchOHLCV(ccxtSymbol, timeframe, since, pageLimit)
+        getPublicExchange("okx"),
+        () => getPublicExchange("okx").fetchOHLCV(ccxtSymbol, timeframe, since, pageLimit)
       );
       if (!Array.isArray(batch) || batch.length === 0) break;
 

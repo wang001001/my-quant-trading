@@ -1,0 +1,982 @@
+{
+  "GET /api/auth/session": {
+    "status": 200,
+    "body": {
+      "authenticated": "<boolean>",
+      "expiresAt": "<number>",
+      "user": {
+        "role": "<string>",
+        "username": "<string>"
+      }
+    }
+  },
+  "GET /api/config/status": {
+    "status": 200,
+    "body": {
+      "ai": "<boolean>",
+      "aiProxy": "<boolean>",
+      "auth": {
+        "authenticated": "<boolean>",
+        "required": "<boolean>",
+        "user": {
+          "role": "<string>",
+          "username": "<string>"
+        }
+      },
+      "okx": "<boolean>",
+      "okxLive": "<boolean>",
+      "smtp": "<boolean>",
+      "sources": {
+        "aiProxy": "<string>",
+        "okxLive": "<null>",
+        "smtp": "<null>"
+      },
+      "zhipu": "<boolean>"
+    }
+  },
+  "GET /api/settings/exchange": {
+    "status": 200,
+    "body": {
+      "activeExchange": "<string>",
+      "hasBinance": "<boolean>",
+      "hasOkx": "<boolean>"
+    }
+  },
+  "GET /api/audit/summary": {
+    "status": 200,
+    "body": {
+      "counts": {
+        "aiSnapshots": "<number>",
+        "orderLifecycle": "<number>",
+        "orderReceipts": "<number>",
+        "positionChanges": "<number>",
+        "riskEvents": "<number>",
+        "securityEvents": "<number>"
+      },
+      "version": "<string>"
+    }
+  },
+  "GET /api/security/events": {
+    "status": 200,
+    "body": [
+      "<array len=16>",
+      {
+        "id": "<string>",
+        "ip": "<string>",
+        "method": "<string>",
+        "path": "<string>",
+        "timestamp": "<number>",
+        "type": "<string>",
+        "userAgent": "<string>",
+        "username": "<string>"
+      }
+    ]
+  },
+  "GET /api/orders/lifecycle": {
+    "status": 200,
+    "body": [
+      "<array len=2>",
+      {
+        "amount": "<number>",
+        "amountType": "<string>",
+        "details": {
+          "reason": "<string>"
+        },
+        "id": "<string>",
+        "operator": "<string>",
+        "requestId": "<string>",
+        "side": "<string>",
+        "status": "<string>",
+        "symbol": "<string>",
+        "timestamp": "<number>"
+      }
+    ]
+  },
+  "GET /api/risk/state": {
+    "status": 200,
+    "body": {
+      "consecutiveStopLosses": "<number>",
+      "cooldownUntil": "<number>",
+      "dailyPnL": "<number>",
+      "date": "<string>",
+      "killSwitchActive": "<boolean>",
+      "macroGate": "<string>",
+      "macroScore": "<number>",
+      "newRiskBlocked": "<boolean>",
+      "updatedAt": "<number>"
+    }
+  },
+  "GET /api/auto-trading/status": {
+    "status": 200,
+    "body": {
+      "config": "<null>",
+      "engineStartedAt": "<null>",
+      "exchangeConnectivity": {
+        "checkedAt": "<null>",
+        "consecutiveFailures": "<number>",
+        "error": "<null>",
+        "lastCheckedAt": "<null>",
+        "lastError": "<null>",
+        "nextRetryAt": "<null>",
+        "okxPrivate": "<null>",
+        "okxPublic": "<null>",
+        "proxy": {
+          "bypassed": "<boolean>",
+          "configured": "<boolean>",
+          "local": "<boolean>",
+          "reachable": "<null>",
+          "reason": "<null>",
+          "url": "<string>"
+        }
+      },
+      "inFlight": "<boolean>",
+      "lastError": "<null>",
+      "lastRunAt": "<null>",
+      "nextRunAt": "<null>",
+      "recentCycleSummary": "<null>",
+      "state": "<string>"
+    }
+  },
+  "GET /api/auto-trading/config": {
+    "status": 200,
+    "body": {
+      "config": "<null>",
+      "status": {
+        "config": "<null>",
+        "engineStartedAt": "<null>",
+        "exchangeConnectivity": {
+          "checkedAt": "<null>",
+          "consecutiveFailures": "<number>",
+          "error": "<null>",
+          "lastCheckedAt": "<null>",
+          "lastError": "<null>",
+          "nextRetryAt": "<null>",
+          "okxPrivate": "<null>",
+          "okxPublic": "<null>",
+          "proxy": {
+            "bypassed": "<boolean>",
+            "configured": "<boolean>",
+            "local": "<boolean>",
+            "reachable": "<null>",
+            "reason": "<null>",
+            "url": "<string>"
+          }
+        },
+        "inFlight": "<boolean>",
+        "lastError": "<null>",
+        "lastRunAt": "<null>",
+        "nextRunAt": "<null>",
+        "recentCycleSummary": "<null>",
+        "state": "<string>"
+      }
+    }
+  },
+  "GET /api/auto-trading/logs?limit=5": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/auto-trading/cycles?limit=5": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/auto-trading/traces?limit=5": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/trades": {
+    "status": 200,
+    "body": [
+      "<array len=1>",
+      {
+        "ai_verdict": "<null>",
+        "amount": "<number>",
+        "amount_type": "<string>",
+        "attached_tp_algo_cl_ord_id": "<null>",
+        "attached_tp_algo_id": "<null>",
+        "client_order_id": "<null>",
+        "closed_at": "<null>",
+        "created_at": "<number>",
+        "current_tp_price": "<null>",
+        "entry_price": "<null>",
+        "entry_reason": "<null>",
+        "exchange_order_id": "<null>",
+        "exit_reason": "<null>",
+        "feature_json": "<string>",
+        "fee": "<null>",
+        "id": "<string>",
+        "initial_tp_price": "<null>",
+        "last_tp_manager_reason": "<null>",
+        "leverage": "<number>",
+        "macro_gate": "<null>",
+        "macro_score": "<null>",
+        "margin": "<null>",
+        "mark_price": "<null>",
+        "mode": "<string>",
+        "notional": "<null>",
+        "opened_at": "<number>",
+        "order_type": "<string>",
+        "parent_id": "<null>",
+        "price": "<null>",
+        "raw_json": "<string>",
+        "realized_pnl": "<null>",
+        "regime": "<null>",
+        "regime_score": "<null>",
+        "request_id": "<string>",
+        "rule_compliant": "<null>",
+        "side": "<string>",
+        "sl_price": "<null>",
+        "source": "<null>",
+        "status": "<string>",
+        "stop_distance": "<null>",
+        "strategy_id": "<null>",
+        "symbol": "<string>",
+        "tp_amend_count": "<null>",
+        "tp_manager_status": "<null>",
+        "tp_price": "<null>",
+        "updated_at": "<number>"
+      }
+    ]
+  },
+  "GET /api/strategy/signals": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/shadow/orders": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/shadow/summary": {
+    "status": 200,
+    "body": {
+      "avgHoldMinutes": "<number>",
+      "closedCount": "<number>",
+      "estimatedCount": "<number>",
+      "openCount": "<number>",
+      "realizedPnl": "<number>",
+      "unrealizedPnl": "<number>",
+      "winRate": "<number>"
+    }
+  },
+  "GET /api/portfolio/returns": {
+    "status": 400,
+    "body": {
+      "error": "OKX 实盘凭据缺失，无法读取真实账单收益。请先在设置中配置 OKX 实盘 API。"
+    }
+  },
+  "GET /api/research/weekly": {
+    "status": 200,
+    "body": {
+      "aiVeto": {},
+      "byEntryReason": {},
+      "byMacroGate": {},
+      "byRegime": {},
+      "byStopDistance": {},
+      "bySymbol": {},
+      "generatedAt": "<number>",
+      "recentShadowOrders": [],
+      "totals": {
+        "shadowAvgSlippageBps": "<number>",
+        "shadowOrders": "<number>",
+        "shadowWorstSlippageBps": "<number>",
+        "trades": "<number>"
+      }
+    }
+  },
+  "GET /api/macro": {
+    "status": 200,
+    "body": {
+      "btcCorrelation": "<number>",
+      "dxy": "<number>",
+      "dxyChange30dPct": "<number>",
+      "dxySource": "<string>",
+      "m2": "<number>",
+      "m2Change3mPct": "<number>",
+      "macroGate": {
+        "confidencePenalty": "<number>",
+        "entryThresholdAdjustment": "<number>",
+        "positionSizeMultiplier": "<number>",
+        "reason": "<string>",
+        "regime": "<string>",
+        "scanIntervalMultiplier": "<number>",
+        "score": "<number>",
+        "state": "<string>"
+      },
+      "macroRiskScore": "<number>",
+      "timestamp": "<number>"
+    }
+  },
+  "POST /api/okx/balance": {
+    "status": 400,
+    "body": {
+      "error": "Missing OKX credentials"
+    }
+  },
+  "GET /api/okx/ticker/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "ask": "<number>",
+      "askVolume": "<number>",
+      "average": "<number>",
+      "baseVolume": "<number>",
+      "bid": "<number>",
+      "bidVolume": "<number>",
+      "change": "<number>",
+      "close": "<number>",
+      "datetime": "<string>",
+      "high": "<number>",
+      "info": {
+        "askPx": "<string>",
+        "askSz": "<string>",
+        "bidPx": "<string>",
+        "bidSz": "<string>",
+        "high24h": "<string>",
+        "instId": "<string>",
+        "instType": "<string>",
+        "last": "<string>",
+        "lastSz": "<string>",
+        "low24h": "<string>",
+        "open24h": "<string>",
+        "sodUtc0": "<string>",
+        "sodUtc8": "<string>",
+        "ts": "<string>",
+        "vol24h": "<string>",
+        "volCcy24h": "<string>"
+      },
+      "last": "<number>",
+      "low": "<number>",
+      "open": "<number>",
+      "percentage": "<number>",
+      "symbol": "<string>",
+      "timestamp": "<number>"
+    }
+  },
+  "GET /api/okx/orderbook/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "asks": [
+        "<array len=20>",
+        [
+          "<array len=3>",
+          "<number>"
+        ]
+      ],
+      "bids": [
+        "<array len=20>",
+        [
+          "<array len=3>",
+          "<number>"
+        ]
+      ],
+      "datetime": "<string>",
+      "symbol": "<string>",
+      "timestamp": "<number>"
+    }
+  },
+  "GET /api/okx/tickers": {
+    "status": 200,
+    "body": {
+      "BTC/USDT:USDT": {
+        "ask": "<number>",
+        "askVolume": "<number>",
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "bid": "<number>",
+        "bidVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "askPx": "<string>",
+          "askSz": "<string>",
+          "bidPx": "<string>",
+          "bidSz": "<string>",
+          "high24h": "<string>",
+          "instId": "<string>",
+          "instType": "<string>",
+          "last": "<string>",
+          "lastSz": "<string>",
+          "low24h": "<string>",
+          "open24h": "<string>",
+          "sodUtc0": "<string>",
+          "sodUtc8": "<string>",
+          "ts": "<string>",
+          "vol24h": "<string>",
+          "volCcy24h": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>"
+      },
+      "DOGE/USDT:USDT": {
+        "ask": "<number>",
+        "askVolume": "<number>",
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "bid": "<number>",
+        "bidVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "askPx": "<string>",
+          "askSz": "<string>",
+          "bidPx": "<string>",
+          "bidSz": "<string>",
+          "high24h": "<string>",
+          "instId": "<string>",
+          "instType": "<string>",
+          "last": "<string>",
+          "lastSz": "<string>",
+          "low24h": "<string>",
+          "open24h": "<string>",
+          "sodUtc0": "<string>",
+          "sodUtc8": "<string>",
+          "ts": "<string>",
+          "vol24h": "<string>",
+          "volCcy24h": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>"
+      },
+      "ETH/USDT:USDT": {
+        "ask": "<number>",
+        "askVolume": "<number>",
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "bid": "<number>",
+        "bidVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "askPx": "<string>",
+          "askSz": "<string>",
+          "bidPx": "<string>",
+          "bidSz": "<string>",
+          "high24h": "<string>",
+          "instId": "<string>",
+          "instType": "<string>",
+          "last": "<string>",
+          "lastSz": "<string>",
+          "low24h": "<string>",
+          "open24h": "<string>",
+          "sodUtc0": "<string>",
+          "sodUtc8": "<string>",
+          "ts": "<string>",
+          "vol24h": "<string>",
+          "volCcy24h": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>"
+      },
+      "SOL/USDT:USDT": {
+        "ask": "<number>",
+        "askVolume": "<number>",
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "bid": "<number>",
+        "bidVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "askPx": "<string>",
+          "askSz": "<string>",
+          "bidPx": "<string>",
+          "bidSz": "<string>",
+          "high24h": "<string>",
+          "instId": "<string>",
+          "instType": "<string>",
+          "last": "<string>",
+          "lastSz": "<string>",
+          "low24h": "<string>",
+          "open24h": "<string>",
+          "sodUtc0": "<string>",
+          "sodUtc8": "<string>",
+          "ts": "<string>",
+          "vol24h": "<string>",
+          "volCcy24h": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>"
+      }
+    }
+  },
+  "GET /api/okx/ohlcv/BTC-USDT-SWAP?t=1h&limit=5": {
+    "status": 200,
+    "body": [
+      "<array len=24>",
+      [
+        "<array len=6>",
+        "<number>"
+      ]
+    ]
+  },
+  "GET /api/okx/funding/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "fundingDatetime": "<string>",
+      "fundingRate": "<number>",
+      "fundingTimestamp": "<number>",
+      "info": {
+        "formulaType": "<string>",
+        "fundingRate": "<string>",
+        "fundingTime": "<string>",
+        "impactValue": "<string>",
+        "instId": "<string>",
+        "instType": "<string>",
+        "interestRate": "<string>",
+        "maxFundingRate": "<string>",
+        "method": "<string>",
+        "minFundingRate": "<string>",
+        "nextFundingRate": "<string>",
+        "nextFundingTime": "<string>",
+        "premium": "<string>",
+        "prevFundingTime": "<string>",
+        "settFundingRate": "<string>",
+        "settState": "<string>",
+        "ts": "<string>"
+      },
+      "interestRate": "<number>",
+      "interval": "<string>",
+      "nextFundingDatetime": "<string>",
+      "nextFundingTimestamp": "<number>",
+      "symbol": "<string>"
+    }
+  },
+  "POST /api/okx/positions": {
+    "status": 400,
+    "body": {
+      "error": "Missing OKX credentials"
+    }
+  },
+  "POST /api/okx/history": {
+    "status": 400,
+    "body": {
+      "error": "Missing OKX credentials"
+    }
+  },
+  "POST /api/okx/realized-pnl": {
+    "status": 400,
+    "body": {
+      "error": "Missing OKX credentials"
+    }
+  },
+  "POST /api/binance/balance": {
+    "status": 200,
+    "body": {
+      "BFUSD": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "BNB": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "BTC": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "ETH": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "FDUSD": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "LDUSDT": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "RWUSD": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "U": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "USD1": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "USDC": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "USDT": {
+        "free": "<number>",
+        "total": "<number>",
+        "used": "<number>"
+      },
+      "availableUSDT": "<number>",
+      "equityUSDT": "<number>",
+      "free": {
+        "BFUSD": "<number>",
+        "BNB": "<number>",
+        "BTC": "<number>",
+        "ETH": "<number>",
+        "FDUSD": "<number>",
+        "LDUSDT": "<number>",
+        "RWUSD": "<number>",
+        "U": "<number>",
+        "USD1": "<number>",
+        "USDC": "<number>",
+        "USDT": "<number>"
+      },
+      "info": {
+        "assets": [
+          "<array len=11>",
+          {
+            "asset": "<string>",
+            "availableBalance": "<string>",
+            "crossUnPnl": "<string>",
+            "crossWalletBalance": "<string>",
+            "initialMargin": "<string>",
+            "maintMargin": "<string>",
+            "marginBalance": "<string>",
+            "maxWithdrawAmount": "<string>",
+            "openOrderInitialMargin": "<string>",
+            "positionInitialMargin": "<string>",
+            "unrealizedProfit": "<string>",
+            "updateTime": "<string>",
+            "walletBalance": "<string>"
+          }
+        ],
+        "availableBalance": "<string>",
+        "maxWithdrawAmount": "<string>",
+        "positions": [],
+        "totalCrossUnPnl": "<string>",
+        "totalCrossWalletBalance": "<string>",
+        "totalInitialMargin": "<string>",
+        "totalMaintMargin": "<string>",
+        "totalMarginBalance": "<string>",
+        "totalOpenOrderInitialMargin": "<string>",
+        "totalPositionInitialMargin": "<string>",
+        "totalUnrealizedProfit": "<string>",
+        "totalWalletBalance": "<string>"
+      },
+      "total": {
+        "BFUSD": "<number>",
+        "BNB": "<number>",
+        "BTC": "<number>",
+        "ETH": "<number>",
+        "FDUSD": "<number>",
+        "LDUSDT": "<number>",
+        "RWUSD": "<number>",
+        "U": "<number>",
+        "USD1": "<number>",
+        "USDC": "<number>",
+        "USDT": "<number>"
+      },
+      "used": {
+        "BFUSD": "<number>",
+        "BNB": "<number>",
+        "BTC": "<number>",
+        "ETH": "<number>",
+        "FDUSD": "<number>",
+        "LDUSDT": "<number>",
+        "RWUSD": "<number>",
+        "U": "<number>",
+        "USD1": "<number>",
+        "USDC": "<number>",
+        "USDT": "<number>"
+      },
+      "usedUSDT": "<number>"
+    }
+  },
+  "GET /api/binance/ticker/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "average": "<number>",
+      "baseVolume": "<number>",
+      "change": "<number>",
+      "close": "<number>",
+      "datetime": "<string>",
+      "high": "<number>",
+      "info": {
+        "closeTime": "<string>",
+        "count": "<string>",
+        "firstId": "<string>",
+        "highPrice": "<string>",
+        "lastId": "<string>",
+        "lastPrice": "<string>",
+        "lastQty": "<string>",
+        "lowPrice": "<string>",
+        "openPrice": "<string>",
+        "openTime": "<string>",
+        "priceChange": "<string>",
+        "priceChangePercent": "<string>",
+        "quoteVolume": "<string>",
+        "symbol": "<string>",
+        "volume": "<string>",
+        "weightedAvgPrice": "<string>"
+      },
+      "last": "<number>",
+      "low": "<number>",
+      "open": "<number>",
+      "percentage": "<number>",
+      "quoteVolume": "<number>",
+      "symbol": "<string>",
+      "timestamp": "<number>",
+      "vwap": "<number>"
+    }
+  },
+  "GET /api/binance/orderbook/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "asks": [
+        "<array len=20>",
+        [
+          "<array len=2>",
+          "<number>"
+        ]
+      ],
+      "bids": [
+        "<array len=20>",
+        [
+          "<array len=2>",
+          "<number>"
+        ]
+      ],
+      "datetime": "<string>",
+      "nonce": "<number>",
+      "symbol": "<string>",
+      "timestamp": "<number>"
+    }
+  },
+  "GET /api/binance/tickers": {
+    "status": 200,
+    "body": {
+      "BTC/USDT:USDT": {
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "closeTime": "<string>",
+          "count": "<string>",
+          "firstId": "<string>",
+          "highPrice": "<string>",
+          "lastId": "<string>",
+          "lastPrice": "<string>",
+          "lastQty": "<string>",
+          "lowPrice": "<string>",
+          "openPrice": "<string>",
+          "openTime": "<string>",
+          "priceChange": "<string>",
+          "priceChangePercent": "<string>",
+          "quoteVolume": "<string>",
+          "symbol": "<string>",
+          "volume": "<string>",
+          "weightedAvgPrice": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "quoteVolume": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>",
+        "vwap": "<number>"
+      },
+      "DOGE/USDT:USDT": {
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "closeTime": "<string>",
+          "count": "<string>",
+          "firstId": "<string>",
+          "highPrice": "<string>",
+          "lastId": "<string>",
+          "lastPrice": "<string>",
+          "lastQty": "<string>",
+          "lowPrice": "<string>",
+          "openPrice": "<string>",
+          "openTime": "<string>",
+          "priceChange": "<string>",
+          "priceChangePercent": "<string>",
+          "quoteVolume": "<string>",
+          "symbol": "<string>",
+          "volume": "<string>",
+          "weightedAvgPrice": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "quoteVolume": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>",
+        "vwap": "<number>"
+      },
+      "ETH/USDT:USDT": {
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "closeTime": "<string>",
+          "count": "<string>",
+          "firstId": "<string>",
+          "highPrice": "<string>",
+          "lastId": "<string>",
+          "lastPrice": "<string>",
+          "lastQty": "<string>",
+          "lowPrice": "<string>",
+          "openPrice": "<string>",
+          "openTime": "<string>",
+          "priceChange": "<string>",
+          "priceChangePercent": "<string>",
+          "quoteVolume": "<string>",
+          "symbol": "<string>",
+          "volume": "<string>",
+          "weightedAvgPrice": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "quoteVolume": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>",
+        "vwap": "<number>"
+      },
+      "SOL/USDT:USDT": {
+        "average": "<number>",
+        "baseVolume": "<number>",
+        "change": "<number>",
+        "close": "<number>",
+        "datetime": "<string>",
+        "high": "<number>",
+        "info": {
+          "closeTime": "<string>",
+          "count": "<string>",
+          "firstId": "<string>",
+          "highPrice": "<string>",
+          "lastId": "<string>",
+          "lastPrice": "<string>",
+          "lastQty": "<string>",
+          "lowPrice": "<string>",
+          "openPrice": "<string>",
+          "openTime": "<string>",
+          "priceChange": "<string>",
+          "priceChangePercent": "<string>",
+          "quoteVolume": "<string>",
+          "symbol": "<string>",
+          "volume": "<string>",
+          "weightedAvgPrice": "<string>"
+        },
+        "last": "<number>",
+        "low": "<number>",
+        "open": "<number>",
+        "percentage": "<number>",
+        "quoteVolume": "<number>",
+        "symbol": "<string>",
+        "timestamp": "<number>",
+        "vwap": "<number>"
+      }
+    }
+  },
+  "GET /api/binance/ohlcv/BTC-USDT-SWAP?t=1h&limit=5": {
+    "status": 200,
+    "body": [
+      "<array len=24>",
+      [
+        "<array len=6>",
+        "<number>"
+      ]
+    ]
+  },
+  "GET /api/binance/funding/BTC-USDT-SWAP": {
+    "status": 200,
+    "body": {
+      "datetime": "<string>",
+      "estimatedSettlePrice": "<number>",
+      "fundingDatetime": "<string>",
+      "fundingRate": "<number>",
+      "fundingTimestamp": "<number>",
+      "indexPrice": "<number>",
+      "info": {
+        "estimatedSettlePrice": "<string>",
+        "indexPrice": "<string>",
+        "interestRate": "<string>",
+        "lastFundingRate": "<string>",
+        "markPrice": "<string>",
+        "nextFundingTime": "<string>",
+        "symbol": "<string>",
+        "time": "<string>"
+      },
+      "interestRate": "<number>",
+      "markPrice": "<number>",
+      "symbol": "<string>",
+      "timestamp": "<number>"
+    }
+  },
+  "POST /api/binance/positions": {
+    "status": 200,
+    "body": []
+  },
+  "POST /api/binance/history": {
+    "status": 200,
+    "body": []
+  },
+  "POST /api/binance/realized-pnl": {
+    "status": 200,
+    "body": {
+      "consecutiveLosses": "<number>",
+      "dailyPnL": "<number>",
+      "date": "<string>",
+      "riskState": {
+        "consecutiveStopLosses": "<number>",
+        "cooldownUntil": "<number>",
+        "dailyPnL": "<number>",
+        "date": "<string>",
+        "killSwitchActive": "<boolean>",
+        "macroGate": "<string>",
+        "macroScore": "<number>",
+        "newRiskBlocked": "<boolean>",
+        "updatedAt": "<number>"
+      },
+      "rows": []
+    }
+  }
+}

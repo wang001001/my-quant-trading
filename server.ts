@@ -7173,6 +7173,21 @@ async function startServer() {
     sendImpl(res, result);
   });
 
+  // --- Binance routes (mirror OKX, share *Impl logic) ---
+  app.post("/api/binance/balance", async (req, res) => sendImpl(res, await balanceImpl("binance", req.body)));
+  app.get("/api/binance/ticker/:symbol", async (req, res) => sendImpl(res, await tickerImpl("binance", req.params.symbol)));
+  app.get("/api/binance/orderbook/:symbol", async (req, res) => sendImpl(res, await orderbookImpl("binance", req.params.symbol)));
+  app.get("/api/binance/tickers", async (_req, res) => sendImpl(res, await tickersImpl("binance")));
+  app.get("/api/binance/ohlcv/:symbol", async (req, res) => sendImpl(res, await ohlcvImpl("binance", req.params.symbol, req.query)));
+  app.get("/api/binance/funding/:symbol", async (req, res) => sendImpl(res, await fundingImpl("binance", req.params.symbol)));
+  app.post("/api/binance/positions", async (req, res) => sendImpl(res, await positionsImpl("binance", req.body)));
+  app.post("/api/binance/history", async (req, res) => sendImpl(res, await historyImpl("binance", req.body)));
+  app.post("/api/binance/realized-pnl", async (req, res) => sendImpl(res, await realizedPnlImpl("binance", req.body)));
+  app.post("/api/binance/order", async (req, res) => {
+    const operator = (req as any).operator?.username || "unknown";
+    sendImpl(res, await orderImpl("binance", req.body, operator));
+  });
+
   app.post("/api/notify", async (req, res) => {
     const { subject, message } = req.body;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {

@@ -3282,6 +3282,14 @@ function resolveCredentialsFor(name: ExchangeName, body: any = {}) {
   return resolveOkxCredentials(body, false);
 }
 
+function resolveActiveExchangeName(): ExchangeName {
+  const fromStore = credentialStore.activeExchange;
+  if (isExchangeName(fromStore)) return fromStore;
+  const fromEnv = envText("ACTIVE_EXCHANGE");
+  if (isExchangeName(fromEnv)) return fromEnv;
+  return "okx";
+}
+
 function mergeText<T extends Record<string, any>>(current: T | undefined, next: Partial<T>) {
   const merged: T = { ...(current || {}) } as T;
   for (const [key, value] of Object.entries(next)) {
@@ -3772,8 +3780,7 @@ function runBacktestOnOhlcv(ohlcv: any[], options: BacktestRunOptions) {
 }
 
 async function fetchBacktestOhlcv(symbol: string, timeframe: string, limit: number) {
-  // TODO Task 2.4: read activeExchange dynamically
-  await prepareExchange(getPublicExchange("okx"));
+  await prepareExchange(getPublicExchange(resolveActiveExchangeName()));
   const ccxtSymbol = toCcxtSymbol(symbol);
   const targetLimit = Math.min(10000, Math.max(60, Math.floor(Number(limit) || 60)));
   const pageLimit = Math.min(300, targetLimit);
@@ -3785,10 +3792,9 @@ async function fetchBacktestOhlcv(symbol: string, timeframe: string, limit: numb
     const maxPages = Math.ceil(targetLimit / pageLimit) + 8;
 
     for (let page = 0; page < maxPages; page += 1) {
-      // TODO Task 2.4: read activeExchange dynamically
       const batch = await runWithExchangeProxyFallback(
-        getPublicExchange("okx"),
-        () => getPublicExchange("okx").fetchOHLCV(ccxtSymbol, timeframe, since, pageLimit)
+        getPublicExchange(resolveActiveExchangeName()),
+        () => getPublicExchange(resolveActiveExchangeName()).fetchOHLCV(ccxtSymbol, timeframe, since, pageLimit)
       );
       if (!Array.isArray(batch) || batch.length === 0) break;
 
